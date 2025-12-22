@@ -55,3 +55,8 @@ Blender as a whole is licensed under the GNU General Public License, Version 3.
 Individual files may have a different, but compatible license.
 
 See [blender.org/about/license](https://www.blender.org/about/license) for details.
+
+Gradient's Goo Engine Fork
+--------------------------
+This fork is intended to be a free alternative host for precompiled Goo Engine builds. This is possible under the GPL
+I encourage you support Dillon Goo in his wonderful project
