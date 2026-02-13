@@ -2,8 +2,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(goo_common_view_lib.glsl)
-#pragma BLENDER_REQUIRE(lightprobe_lib.glsl)
+#include "goo_common_view_lib.glsl"
+#include "lightprobe_lib.glsl"
 
 void main()
 {

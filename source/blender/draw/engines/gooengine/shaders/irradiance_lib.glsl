@@ -2,9 +2,11 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(goo_common_math_lib.glsl)
-#pragma BLENDER_REQUIRE(common_uniforms_lib.glsl)
-#pragma BLENDER_REQUIRE(octahedron_lib.glsl)
+#pragma once
+
+#include "common_math_lib.glsl"
+#include "common_uniforms_lib.glsl"
+#include "octahedron_lib.glsl"
 
 #define IRRADIANCE_LIB
 

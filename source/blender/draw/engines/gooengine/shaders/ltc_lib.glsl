@@ -10,8 +10,10 @@
  * Project page: https://eheitzresearch.wordpress.com/415-2/
  */
 
+#pragma once
+
 /* Ensure common_utiltex_lib is included first. */
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
+#include "common_utiltex_lib.glsl"
 
 #define USE_LTC
 

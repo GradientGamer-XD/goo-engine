@@ -167,11 +167,11 @@ static struct {
 } e_data = {nullptr}; /* Engine data */
 
 extern "C" char datatoc_engine_eevee_legacy_shared_h[];
-extern "C" char datatoc_goo_common_hair_lib_glsl[];
-extern "C" char datatoc_goo_common_math_lib_glsl[];
-extern "C" char datatoc_goo_common_math_geom_lib_glsl[];
+extern "C" char datatoc_common_hair_lib_glsl[];
+extern "C" char datatoc_common_math_lib_glsl[];
+extern "C" char datatoc_common_math_geom_lib_glsl[];
 extern "C" char datatoc_goo_common_view_lib_glsl[];
-extern "C" char datatoc_goo_gpu_shader_codegen_lib_glsl[];
+extern "C" char datatoc_gpu_shader_codegen_lib_glsl[];
 
 extern "C" char datatoc_ambient_occlusion_lib_glsl[];
 extern "C" char datatoc_bsdf_common_lib_glsl[];
@@ -216,12 +216,12 @@ static void eevee_shader_library_ensure()
     e_data.lib = DRW_shader_library_create();
     /* NOTE: These need to be ordered by dependencies. */
     DRW_SHADER_LIB_ADD_SHARED(e_data.lib, engine_eevee_legacy_shared);
-    DRW_SHADER_LIB_ADD(e_data.lib, goo_common_math_lib);
-    DRW_SHADER_LIB_ADD(e_data.lib, goo_common_math_geom_lib);
-    DRW_SHADER_LIB_ADD(e_data.lib, goo_common_hair_lib);
+    DRW_SHADER_LIB_ADD(e_data.lib, common_math_lib);
+    DRW_SHADER_LIB_ADD(e_data.lib, common_math_geom_lib);
+    DRW_SHADER_LIB_ADD(e_data.lib, common_hair_lib);
     DRW_SHADER_LIB_ADD(e_data.lib, goo_common_view_lib);
     DRW_SHADER_LIB_ADD(e_data.lib, common_uniforms_lib);
-    DRW_SHADER_LIB_ADD(e_data.lib, goo_gpu_shader_codegen_lib);
+    DRW_SHADER_LIB_ADD(e_data.lib, gpu_shader_codegen_lib);
     DRW_SHADER_LIB_ADD(e_data.lib, random_lib);
     DRW_SHADER_LIB_ADD(e_data.lib, renderpass_lib);
     DRW_SHADER_LIB_ADD(e_data.lib, bsdf_common_lib);
@@ -1259,28 +1259,36 @@ static const char *eevee_get_frag_info(int options, char **r_src)
     /* -- PREPASS FRAG -
      * Select create info permutation for `prepass_frag`. */
 
+    const bool is_shadow = (options & VAR_MAT_SHADOW) != 0;
+
     if (is_alpha_hash) {
       /* Alpha hash material variants. */
       if (is_hair) {
-        info_name = "eevee_legacy_material_prepass_frag_alpha_hash_hair";
+        info_name = is_shadow ? "eevee_legacy_material_shadow_frag_alpha_hash_hair" :
+                                "eevee_legacy_material_prepass_frag_alpha_hash_hair";
       }
       else if (is_point_cloud) {
-        info_name = "eevee_legacy_material_prepass_frag_alpha_hash_pointcloud";
+        info_name = is_shadow ? "eevee_legacy_material_shadow_frag_alpha_hash_pointcloud" :
+                                "eevee_legacy_material_prepass_frag_alpha_hash_pointcloud";
       }
       else {
-        info_name = "eevee_legacy_material_prepass_frag_alpha_hash";
+        info_name = is_shadow ? "eevee_legacy_material_shadow_frag_alpha_hash" :
+                                "eevee_legacy_material_prepass_frag_alpha_hash";
       }
     }
     else {
       /* Opaque material variants. */
       if (is_hair) {
-        info_name = "eevee_legacy_material_prepass_frag_opaque_hair";
+        info_name = is_shadow ? "eevee_legacy_material_shadow_frag_opaque_hair" :
+                                "eevee_legacy_material_prepass_frag_opaque_hair";
       }
       else if (is_point_cloud) {
-        info_name = "eevee_legacy_material_prepass_frag_opaque_pointcloud";
+        info_name = is_shadow ? "eevee_legacy_material_shadow_frag_opaque_pointcloud" :
+                                "eevee_legacy_material_prepass_frag_opaque_pointcloud";
       }
       else {
-        info_name = "eevee_legacy_material_prepass_frag_opaque";
+        info_name = is_shadow ? "eevee_legacy_material_shadow_frag_opaque" :
+                                "eevee_legacy_material_prepass_frag_opaque";
       }
     }
     *r_src = BLI_strdup(e_data.surface_prepass_frag);
@@ -1346,6 +1354,9 @@ static char *eevee_get_defines(int options)
   if ((options & VAR_MAT_SHADOW_ID) != 0) {
     BLI_dynstr_append(ds, "#define USE_SHADOW_ID\n");
   }
+  if ((options & VAR_MAT_SHADOW) != 0) {
+    BLI_dynstr_append(ds, "#define SHADOW_PASS\n");
+  }
 
   str = BLI_dynstr_get_cstring(ds);
   BLI_dynstr_free(ds);
@@ -1410,6 +1421,7 @@ GPUMaterial *EEVEE_material_default_get(Scene *scene, Material *ma, int options)
 GPUMaterial *EEVEE_material_get(
     EEVEE_Data *vedata, Scene *scene, Material *ma, World *wo, int options)
 {
+  GOOENGINE_Instance *inst = vedata->instance;
   if ((ma && (!ma->use_nodes || !ma->nodetree)) || (wo && (!wo->use_nodes || !wo->nodetree))) {
     options |= VAR_DEFAULT;
   }
@@ -1434,12 +1446,12 @@ GPUMaterial *EEVEE_material_get(
       /* Determine optimization status for remaining compilations counter. */
       int optimization_status = GPU_material_optimization_status(mat);
       if (optimization_status == GPU_MAT_OPTIMIZATION_QUEUED) {
-        vedata->stl->g_data->queued_optimise_shaders_count++;
+        inst->g_data->queued_optimise_shaders_count++;
       }
       break;
     }
     case GPU_MAT_QUEUED: {
-      vedata->stl->g_data->queued_shaders_count++;
+      inst->g_data->queued_shaders_count++;
       GPUMaterial *default_mat = EEVEE_material_default_get(scene, ma, options);
       /* Mark pending material with its default material for future cache warming. */
       GPU_material_set_default(mat, default_mat);

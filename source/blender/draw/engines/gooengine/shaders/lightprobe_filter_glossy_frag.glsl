@@ -2,9 +2,9 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(random_lib.glsl)
-#pragma BLENDER_REQUIRE(bsdf_sampling_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_geom_lib.glsl)
+#include "random_lib.glsl"
+#include "bsdf_sampling_lib.glsl"
+#include "common_math_geom_lib.glsl"
 
 vec3 octahedral_to_cubemap_proj(vec2 co)
 {

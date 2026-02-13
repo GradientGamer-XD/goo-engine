@@ -791,16 +791,6 @@ static DRWResourceHandle drw_resource_handle_new(const float (*obmat)[4], const 
   return handle;
 }
 
-uint32_t DRW_object_resource_id_get(Object * /*ob*/)
-{
-  DRWResourceHandle handle = DST.ob_handle;
-  if (handle == 0) {
-    /* Handle not yet allocated. Return next handle. */
-    handle = DST.resource_handle;
-  }
-  return handle & ~(1u << 31);
-}
-
 static DRWResourceHandle drw_resource_handle(DRWShadingGroup *shgroup,
                                              const float (*obmat)[4],
                                              const Object *ob)
@@ -1073,54 +1063,6 @@ void DRW_shgroup_call_ex(DRWShadingGroup *shgroup,
   }
 }
 
-void DRW_shgroup_call_range(
-    DRWShadingGroup *shgroup, const Object *ob, blender::gpu::Batch *geom, uint v_sta, uint v_num)
-{
-  BLI_assert(geom != nullptr);
-  if (G.f & G_FLAG_PICKSEL) {
-    drw_command_set_select_id(shgroup, nullptr, DST.select_id);
-  }
-  DRWResourceHandle handle = drw_resource_handle(
-      shgroup, ob ? ob->object_to_world().ptr() : nullptr, ob);
-  drw_command_draw_range(shgroup, geom, handle, v_sta, v_num);
-}
-
-void DRW_shgroup_call_instance_range(
-    DRWShadingGroup *shgroup, const Object *ob, blender::gpu::Batch *geom, uint i_sta, uint i_num)
-{
-  BLI_assert(geom != nullptr);
-  if (G.f & G_FLAG_PICKSEL) {
-    drw_command_set_select_id(shgroup, nullptr, DST.select_id);
-  }
-  DRWResourceHandle handle = drw_resource_handle(
-      shgroup, ob ? ob->object_to_world().ptr() : nullptr, ob);
-  drw_command_draw_intance_range(shgroup, geom, handle, i_sta, i_num);
-}
-
-void DRW_shgroup_call_compute(DRWShadingGroup *shgroup,
-                              int groups_x_len,
-                              int groups_y_len,
-                              int groups_z_len)
-{
-  BLI_assert(groups_x_len > 0 && groups_y_len > 0 && groups_z_len > 0);
-  drw_command_compute(shgroup, groups_x_len, groups_y_len, groups_z_len);
-}
-
-void DRW_shgroup_call_compute_ref(DRWShadingGroup *shgroup, int groups_ref[3])
-{
-  drw_command_compute_ref(shgroup, groups_ref);
-}
-
-void DRW_shgroup_call_compute_indirect(DRWShadingGroup *shgroup, GPUStorageBuf *indirect_buf)
-{
-  drw_command_compute_indirect(shgroup, indirect_buf);
-}
-
-void DRW_shgroup_barrier(DRWShadingGroup *shgroup, eGPUBarrier type)
-{
-  drw_command_barrier(shgroup, type);
-}
-
 static void drw_shgroup_call_procedural_add_ex(DRWShadingGroup *shgroup,
                                                blender::gpu::Batch *geom,
                                                const Object *ob,
@@ -1136,59 +1078,12 @@ static void drw_shgroup_call_procedural_add_ex(DRWShadingGroup *shgroup,
   drw_command_draw_procedural(shgroup, geom, handle, vert_count);
 }
 
-void DRW_shgroup_call_procedural_points(DRWShadingGroup *shgroup,
-                                        const Object *ob,
-                                        uint point_count)
-{
-  blender::gpu::Batch *geom = drw_cache_procedural_points_get();
-  drw_shgroup_call_procedural_add_ex(shgroup, geom, ob, point_count);
-}
-
-void DRW_shgroup_call_procedural_lines(DRWShadingGroup *shgroup, const Object *ob, uint line_count)
-{
-  blender::gpu::Batch *geom = drw_cache_procedural_lines_get();
-  drw_shgroup_call_procedural_add_ex(shgroup, geom, ob, line_count * 2);
-}
-
 void DRW_shgroup_call_procedural_triangles(DRWShadingGroup *shgroup,
                                            const Object *ob,
                                            uint tri_count)
 {
   blender::gpu::Batch *geom = drw_cache_procedural_triangles_get();
   drw_shgroup_call_procedural_add_ex(shgroup, geom, ob, tri_count * 3);
-}
-
-void DRW_shgroup_call_procedural_indirect(DRWShadingGroup *shgroup,
-                                          GPUPrimType primitive_type,
-                                          Object *ob,
-                                          GPUStorageBuf *indirect_buf)
-{
-  blender::gpu::Batch *geom = nullptr;
-  switch (primitive_type) {
-    case GPU_PRIM_POINTS:
-      geom = drw_cache_procedural_points_get();
-      break;
-    case GPU_PRIM_LINES:
-      geom = drw_cache_procedural_lines_get();
-      break;
-    case GPU_PRIM_TRIS:
-      geom = drw_cache_procedural_triangles_get();
-      break;
-    case GPU_PRIM_TRI_STRIP:
-      geom = drw_cache_procedural_triangle_strips_get();
-      break;
-    default:
-      BLI_assert_msg(0,
-                     "Unsupported primitive type in DRW_shgroup_call_procedural_indirect. Add new "
-                     "one as needed.");
-      break;
-  }
-  if (G.f & G_FLAG_PICKSEL) {
-    drw_command_set_select_id(shgroup, nullptr, DST.select_id);
-  }
-  DRWResourceHandle handle = drw_resource_handle(
-      shgroup, ob ? ob->object_to_world().ptr() : nullptr, ob);
-  drw_command_draw_indirect(shgroup, geom, handle, indirect_buf);
 }
 
 void DRW_shgroup_call_instances(DRWShadingGroup *shgroup,
@@ -1203,23 +1098,6 @@ void DRW_shgroup_call_instances(DRWShadingGroup *shgroup,
   DRWResourceHandle handle = drw_resource_handle(
       shgroup, ob ? ob->object_to_world().ptr() : nullptr, ob);
   drw_command_draw_instance(shgroup, geom, handle, count, false);
-}
-
-void DRW_shgroup_call_instances_with_attrs(DRWShadingGroup *shgroup,
-                                           const Object *ob,
-                                           blender::gpu::Batch *geom,
-                                           blender::gpu::Batch *inst_attributes)
-{
-  BLI_assert(geom != nullptr);
-  BLI_assert(inst_attributes != nullptr);
-  if (G.f & G_FLAG_PICKSEL) {
-    drw_command_set_select_id(shgroup, nullptr, DST.select_id);
-  }
-  DRWResourceHandle handle = drw_resource_handle(
-      shgroup, ob ? ob->object_to_world().ptr() : nullptr, ob);
-  blender::gpu::Batch *batch = DRW_temp_batch_instance_request(
-      DST.vmempool->idatalist, nullptr, inst_attributes, geom);
-  drw_command_draw_instance(shgroup, batch, handle, 0, true);
 }
 
 #define SCULPT_DEBUG_BUFFERS (G.debug_value == 889)
@@ -1382,59 +1260,6 @@ static void drw_sculpt_generate_calls(DRWSculptCallbackData *scd)
                   visible_nodes);
 }
 
-void DRW_shgroup_call_sculpt(DRWShadingGroup *shgroup,
-                             Object *ob,
-                             bool use_wire,
-                             bool use_mask,
-                             bool use_fset,
-                             bool use_color,
-                             bool use_uv)
-{
-  using namespace blender;
-  using namespace blender::draw;
-  DRWSculptCallbackData scd{};
-  scd.ob = ob;
-  scd.shading_groups = &shgroup;
-  scd.num_shading_groups = 1;
-  scd.use_wire = use_wire;
-  scd.use_mats = false;
-  scd.use_mask = use_mask;
-
-  Vector<pbvh::AttributeRequest, 16> attrs;
-
-  attrs.append(pbvh::CustomRequest::Position);
-  attrs.append(pbvh::CustomRequest::Normal);
-  if (use_mask) {
-    attrs.append(pbvh::CustomRequest::Mask);
-  }
-  if (use_fset) {
-    attrs.append(pbvh::CustomRequest::FaceSet);
-  }
-
-  Mesh *mesh = BKE_object_get_original_mesh(ob);
-  const bke::AttributeAccessor attributes = mesh->attributes();
-
-  if (use_color) {
-    if (const char *name = mesh->active_color_attribute) {
-      if (const std::optional<bke::AttributeMetaData> meta_data = attributes.lookup_meta_data(
-              name))
-      {
-        attrs.append(pbvh::GenericRequest{name, meta_data->data_type, meta_data->domain});
-      }
-    }
-  }
-
-  if (use_uv) {
-    if (const char *name = CustomData_get_active_layer_name(&mesh->corner_data, CD_PROP_FLOAT2)) {
-      attrs.append(pbvh::GenericRequest{name, CD_PROP_FLOAT2, bke::AttrDomain::Corner});
-    }
-  }
-
-  scd.attrs = attrs;
-
-  drw_sculpt_generate_calls(&scd);
-}
-
 void DRW_shgroup_call_sculpt_with_materials(DRWShadingGroup **shgroups,
                                             GPUMaterial **gpumats,
                                             int num_shgroups,
@@ -1490,37 +1315,6 @@ void DRW_shgroup_call_sculpt_with_materials(DRWShadingGroup **shgroups,
 
 static GPUVertFormat inst_select_format = {0};
 
-DRWCallBuffer *DRW_shgroup_call_buffer(DRWShadingGroup *shgroup,
-                                       GPUVertFormat *format,
-                                       GPUPrimType prim_type)
-{
-  BLI_assert(ELEM(prim_type, GPU_PRIM_POINTS, GPU_PRIM_LINES, GPU_PRIM_TRI_FAN));
-  BLI_assert(format != nullptr);
-
-  DRWCallBuffer *callbuf = static_cast<DRWCallBuffer *>(
-      BLI_memblock_alloc(DST.vmempool->callbuffers));
-  callbuf->buf = DRW_temp_buffer_request(DST.vmempool->idatalist, format, &callbuf->count);
-  callbuf->buf_select = nullptr;
-  callbuf->count = 0;
-
-  if (G.f & G_FLAG_PICKSEL) {
-    /* Not actually used for rendering but allocated in one chunk. */
-    if (inst_select_format.attr_len == 0) {
-      GPU_vertformat_attr_add(&inst_select_format, "selectId", GPU_COMP_I32, 1, GPU_FETCH_INT);
-    }
-    callbuf->buf_select = DRW_temp_buffer_request(
-        DST.vmempool->idatalist, &inst_select_format, &callbuf->count);
-    drw_command_set_select_id(shgroup, callbuf->buf_select, -1);
-  }
-
-  DRWResourceHandle handle = drw_resource_handle(shgroup, nullptr, nullptr);
-  blender::gpu::Batch *batch = DRW_temp_batch_request(
-      DST.vmempool->idatalist, callbuf->buf, prim_type);
-  drw_command_draw(shgroup, batch, handle);
-
-  return callbuf;
-}
-
 DRWCallBuffer *DRW_shgroup_call_buffer_instance(DRWShadingGroup *shgroup,
                                                 GPUVertFormat *format,
                                                 blender::gpu::Batch *geom)
@@ -1550,27 +1344,6 @@ DRWCallBuffer *DRW_shgroup_call_buffer_instance(DRWShadingGroup *shgroup,
   drw_command_draw(shgroup, batch, handle);
 
   return callbuf;
-}
-
-void DRW_buffer_add_entry_struct(DRWCallBuffer *callbuf, const void *data)
-{
-  blender::gpu::VertBuf *buf = callbuf->buf;
-  const bool resize = (callbuf->count == GPU_vertbuf_get_vertex_alloc(buf));
-
-  if (UNLIKELY(resize)) {
-    GPU_vertbuf_data_resize(*buf, callbuf->count + DRW_BUFFER_VERTS_CHUNK);
-  }
-
-  GPU_vertbuf_vert_set(buf, callbuf->count, data);
-
-  if (G.f & G_FLAG_PICKSEL) {
-    if (UNLIKELY(resize)) {
-      GPU_vertbuf_data_resize(*callbuf->buf_select, callbuf->count + DRW_BUFFER_VERTS_CHUNK);
-    }
-    GPU_vertbuf_attr_set(callbuf->buf_select, 0, callbuf->count, &DST.select_id);
-  }
-
-  callbuf->count++;
 }
 
 void DRW_buffer_add_entry_array(DRWCallBuffer *callbuf, const void *attr[], uint attr_len)
@@ -1876,23 +1649,6 @@ DRWShadingGroup *DRW_shgroup_create(GPUShader *shader, DRWPass *pass)
   return shgroup;
 }
 
-DRWShadingGroup *DRW_shgroup_transform_feedback_create(GPUShader *shader,
-                                                       DRWPass *pass,
-                                                       blender::gpu::VertBuf *tf_target)
-{
-  BLI_assert(tf_target != nullptr);
-  DRWShadingGroup *shgroup = drw_shgroup_create_ex(shader, pass);
-  drw_shgroup_init(shgroup, shader);
-  drw_shgroup_uniform_create_ex(shgroup,
-                                0,
-                                DRW_UNIFORM_TFEEDBACK_TARGET,
-                                tf_target,
-                                GPUSamplerState::default_sampler(),
-                                0,
-                                1);
-  return shgroup;
-}
-
 void DRW_shgroup_state_enable(DRWShadingGroup *shgroup, DRWState state)
 {
   drw_command_set_mutable_state(shgroup, state, DRW_STATE_NO_DRAW);
@@ -1903,29 +1659,9 @@ void DRW_shgroup_state_disable(DRWShadingGroup *shgroup, DRWState state)
   drw_command_set_mutable_state(shgroup, DRW_STATE_NO_DRAW, state);
 }
 
-void DRW_shgroup_stencil_set(DRWShadingGroup *shgroup,
-                             uint write_mask,
-                             uint reference,
-                             uint compare_mask)
-{
-  drw_command_set_stencil_mask(shgroup, write_mask, reference, compare_mask);
-}
-
 void DRW_shgroup_stencil_mask(DRWShadingGroup *shgroup, uint mask)
 {
   drw_command_set_stencil_mask(shgroup, 0xFF, mask, 0xFF);
-}
-
-void DRW_shgroup_clear_framebuffer(DRWShadingGroup *shgroup,
-                                   eGPUFrameBufferBits channels,
-                                   uchar r,
-                                   uchar g,
-                                   uchar b,
-                                   uchar a,
-                                   float depth,
-                                   uchar stencil)
-{
-  drw_command_clear(shgroup, channels, r, g, b, a, depth, stencil);
 }
 
 bool DRW_shgroup_is_empty(DRWShadingGroup *shgroup)
@@ -2314,11 +2050,6 @@ void DRW_view_clip_planes_set(DRWView *view, float (*planes)[4], int plane_len)
   }
 }
 
-void DRW_view_frustum_corners_get(const DRWView *view, BoundBox *corners)
-{
-  memcpy(corners, &view->frustum_corners, sizeof(view->frustum_corners));
-}
-
 std::array<float4, 6> DRW_view_frustum_planes_get(const DRWView *view)
 {
   std::array<float4, 6> planes;
@@ -2432,15 +2163,6 @@ bool DRW_pass_is_empty(DRWPass *pass)
   return true;
 }
 
-void DRW_pass_foreach_shgroup(DRWPass *pass,
-                              void (*callback)(void *user_data, DRWShadingGroup *shgrp),
-                              void *user_data)
-{
-  LISTBASE_FOREACH (DRWShadingGroup *, shgroup, &pass->shgroups) {
-    callback(user_data, shgroup);
-  }
-}
-
 static int pass_shgroup_dist_sort(const void *a, const void *b)
 {
   const DRWShadingGroup *shgrp_a = (const DRWShadingGroup *)a;
@@ -2520,13 +2242,6 @@ void DRW_pass_sort_shgroup_z(DRWPass *pass)
     last->pass_handle = pass->handle;
   }
   pass->shgroups.last = last;
-}
-
-void DRW_pass_sort_shgroup_reverse(DRWPass *pass)
-{
-  pass->shgroups.last = pass->shgroups.first;
-  /* WARNING: Assume that DRWShadingGroup->next is the first member. */
-  BLI_linklist_reverse((LinkNode **)&pass->shgroups.first);
 }
 
 /** \} */

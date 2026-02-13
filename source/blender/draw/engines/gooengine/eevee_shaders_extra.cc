@@ -74,9 +74,13 @@ void eevee_shader_material_create_info_amend(GPUMaterial *gpumat,
   }
 
   /* GooEngine: Set Depth node can write to gl_FragDepth arbitrarily.
+   * Only enable depth_write for materials that actually use Set Depth node
+   * to avoid black speckle artifacts on Metal.
    * This shouldn't incur a performance penalty according to
    * https://registry.khronos.org/OpenGL/extensions/ARB/ARB_conservative_depth.txt */
-  info.depth_write(DepthWrite::ANY);
+  if (GPU_material_flag_get(gpumat, GPU_MATFLAG_SET_DEPTH)) {
+    info.depth_write(DepthWrite::ANY);
+  }
 
   /* Lookdev - Add FragDepth. */
   if (options & VAR_MAT_LOOKDEV) {

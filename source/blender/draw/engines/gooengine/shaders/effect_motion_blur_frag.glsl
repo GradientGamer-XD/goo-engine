@@ -12,7 +12,7 @@
  * by Jorge Jimenez
  */
 
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
+#include "common_utiltex_lib.glsl"
 
 #define KERNEL 8
 

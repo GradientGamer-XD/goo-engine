@@ -19,7 +19,7 @@ MAX_LIGHT_GROUP_BIT = 127
 
 def set_bit(vec, bit):
     index = bit // SIZEOF_INT
-    mask = 1 << (bit % SIZEOF_INT)
+    mask = 1 << ((bit + 1) % SIZEOF_INT)
     if index > 3:
         return
     vec[index] = int(c_int32(vec[index] | mask).value)

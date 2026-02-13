@@ -2,10 +2,12 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-// #pragma (gpu_shader_codegen_lib.glsl)
-#pragma BLENDER_REQUIRE(lights_lib.glsl)
-#pragma BLENDER_REQUIRE(lightprobe_lib.glsl)
+#pragma once
+
+#include "common_utiltex_lib.glsl"
+// #include "gpu_shader_codegen_lib.glsl"
+#include "lights_lib.glsl"
+#include "lightprobe_lib.glsl"
 
 #ifndef GPU_FRAGMENT_SHADER
 #  define gl_FragCoord vec4(0.0)

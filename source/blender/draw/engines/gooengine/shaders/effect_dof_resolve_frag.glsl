@@ -10,8 +10,8 @@
  * we do a brute-force gather to have a smooth transition between in-focus and defocus regions.
  */
 
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-#pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
+#include "common_utiltex_lib.glsl"
+#include "effect_dof_lib.glsl"
 
 void dof_slight_focus_gather(float radius, out vec4 out_color, out float out_weight)
 {

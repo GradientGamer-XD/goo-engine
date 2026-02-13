@@ -354,9 +354,25 @@ static void eevee_shadow_cascade_setup(EEVEE_LightsInfo *linfo,
       add_v2_v2(projmat[3], jitter_ofs);
     }
 
+#ifdef __APPLE__
+    /* Metal: Adjust projection matrix for depth range [0, 1] instead of [-1, 1].
+     * z_metal = (z_opengl + 1) / 2 = z_opengl * 0.5 + 0.5
+     * CRITICAL: This must come BEFORE shadowmat calculation so that both
+     * shadow map rendering and shadow sampling use the same depth range. */
+    projmat[2][2] *= 0.5f;
+    projmat[3][2] = projmat[3][2] * 0.5f + 0.5f;
+#endif
+
+    /* Calculate shadow matrix for sampling. */
     float viewprojmat[4][4];
     mul_m4_m4m4(viewprojmat, projmat, viewmat);
+#ifdef __APPLE__
+    /* Metal: Use texcomat_metal which doesn't apply Z transform since
+     * projmat already produces Z in [0, 1] range after above adjustment. */
+    mul_m4_m4m4(csm_data->shadowmat[c], texcomat_metal, viewprojmat);
+#else
     mul_m4_m4m4(csm_data->shadowmat[c], texcomat, viewprojmat);
+#endif
 
 #ifdef DEBUG_CSM
     DRW_debug_m4_as_bbox(viewprojmat, true, dbg_col);
@@ -388,10 +404,9 @@ void EEVEE_shadows_draw_cascades(EEVEE_ViewLayerData *sldata,
                                  DRWView *view,
                                  int cascade_index)
 {
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
-  EEVEE_PrivateData *g_data = stl->g_data;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_PrivateData *g_data = inst->g_data;
   EEVEE_LightsInfo *linfo = sldata->lights;
 
   EEVEE_Light *evli = linfo->light_data + linfo->shadow_cascade_light_indices[cascade_index];
@@ -422,6 +437,6 @@ void EEVEE_shadows_draw_cascades(EEVEE_ViewLayerData *sldata,
         sldata->shadow_fb, sldata->shadow_cascade_id_pool, 1, layer, 0);
     GPU_framebuffer_bind(sldata->shadow_fb);
     GPU_framebuffer_clear_depth(sldata->shadow_fb, 1.0f);
-    DRW_draw_pass(psl->shadow_pass);
+    DRW_draw_pass(inst->shadow_pass);
   }
 }

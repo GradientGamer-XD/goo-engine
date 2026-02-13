@@ -9,7 +9,7 @@
  * weight luma for the bilateral weights.
  */
 
-#pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
+#include "effect_dof_lib.glsl"
 
 void main()
 {

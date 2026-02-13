@@ -2,8 +2,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-#pragma BLENDER_REQUIRE(bsdf_sampling_lib.glsl)
+#include "common_utiltex_lib.glsl"
+#include "bsdf_sampling_lib.glsl"
 
 /* Generate BSDF LUT for `IOR < 1`. Returns the integrated BTDF and BRDF, multiplied by the cosine
  * foreshortening factor. */

@@ -10,7 +10,7 @@
  * that comes from the background pixels.
  */
 
-#pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
+#include "effect_dof_lib.glsl"
 
 #define halfres_tile_divisor (DOF_TILE_DIVISOR / 2)
 

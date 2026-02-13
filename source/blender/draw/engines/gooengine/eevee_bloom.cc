@@ -20,9 +20,8 @@ static const bool use_highres = true;
 
 int EEVEE_bloom_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
   const DRWContextState *draw_ctx = DRW_context_state_get();
   const Scene *scene_eval = DEG_get_evaluated_scene(draw_ctx->depsgraph);
@@ -48,7 +47,7 @@ int EEVEE_bloom_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
         blitsize[0], blitsize[1], GPU_R11F_G11F_B10F, usage, &draw_engine_eevee_type);
 
     GPU_framebuffer_ensure_config(
-        &fbl->bloom_blit_fb, {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(effects->bloom_blit)});
+        &inst->bloom_blit_fb, {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(effects->bloom_blit)});
 
     /* Parameters */
     const float threshold = scene_eval->eevee.bloom_threshold;
@@ -90,7 +89,7 @@ int EEVEE_bloom_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
       effects->bloom_downsample[i] = DRW_texture_pool_query_2d_ex(
           texsize[0], texsize[1], GPU_R11F_G11F_B10F, downsample_usage, &draw_engine_eevee_type);
       GPU_framebuffer_ensure_config(
-          &fbl->bloom_down_fb[i],
+          &inst->bloom_down_fb[i],
           {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(effects->bloom_downsample[i])});
     }
 
@@ -109,7 +108,7 @@ int EEVEE_bloom_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
       effects->bloom_upsample[i] = DRW_texture_pool_query_2d_ex(
           texsize[0], texsize[1], GPU_R11F_G11F_B10F, upsample_usage, &draw_engine_eevee_type);
       GPU_framebuffer_ensure_config(
-          &fbl->bloom_accum_fb[i],
+          &inst->bloom_accum_fb[i],
           {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(effects->bloom_upsample[i])});
     }
 
@@ -117,11 +116,11 @@ int EEVEE_bloom_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
   }
 
   /* Cleanup to release memory */
-  GPU_FRAMEBUFFER_FREE_SAFE(fbl->bloom_blit_fb);
+  GPU_FRAMEBUFFER_FREE_SAFE(inst->bloom_blit_fb);
 
   for (int i = 0; i < MAX_BLOOM_STEP - 1; i++) {
-    GPU_FRAMEBUFFER_FREE_SAFE(fbl->bloom_down_fb[i]);
-    GPU_FRAMEBUFFER_FREE_SAFE(fbl->bloom_accum_fb[i]);
+    GPU_FRAMEBUFFER_FREE_SAFE(inst->bloom_down_fb[i]);
+    GPU_FRAMEBUFFER_FREE_SAFE(inst->bloom_accum_fb[i]);
   }
 
   return 0;
@@ -157,11 +156,10 @@ static DRWShadingGroup *eevee_create_bloom_pass(const char *name,
 
 void EEVEE_bloom_cache_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
-  psl->bloom_accum_ps = nullptr;
+  inst->bloom_accum_ps = nullptr;
 
   if ((effects->enabled_effects & EFFECT_BLOOM) != 0) {
     /**
@@ -199,21 +197,21 @@ void EEVEE_bloom_cache_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata
     eevee_create_bloom_pass("Bloom Downsample First",
                             effects,
                             EEVEE_shaders_bloom_downsample_get(use_antiflicker),
-                            &psl->bloom_downsample_first,
+                            &inst->bloom_downsample_first,
                             false,
                             false,
                             false);
     eevee_create_bloom_pass("Bloom Downsample",
                             effects,
                             EEVEE_shaders_bloom_downsample_get(false),
-                            &psl->bloom_downsample,
+                            &inst->bloom_downsample,
                             false,
                             false,
                             false);
     eevee_create_bloom_pass("Bloom Upsample",
                             effects,
                             EEVEE_shaders_bloom_upsample_get(use_highres),
-                            &psl->bloom_upsample,
+                            &inst->bloom_upsample,
                             true,
                             false,
                             false);
@@ -221,7 +219,7 @@ void EEVEE_bloom_cache_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata
     grp = eevee_create_bloom_pass("Bloom Blit",
                                   effects,
                                   EEVEE_shaders_bloom_blit_get(use_antiflicker),
-                                  &psl->bloom_blit,
+                                  &inst->bloom_blit,
                                   false,
                                   false,
                                   false);
@@ -231,7 +229,7 @@ void EEVEE_bloom_cache_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata
     grp = eevee_create_bloom_pass("Bloom Resolve",
                                   effects,
                                   EEVEE_shaders_bloom_resolve_get(use_highres),
-                                  &psl->bloom_resolve,
+                                  &inst->bloom_resolve,
                                   true,
                                   true,
                                   true);
@@ -240,11 +238,8 @@ void EEVEE_bloom_cache_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata
 
 void EEVEE_bloom_draw(EEVEE_Data *vedata)
 {
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_TextureList *txl = vedata->txl;
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
   /* Bloom */
   if ((effects->enabled_effects & EFFECT_BLOOM) != 0) {
@@ -254,15 +249,15 @@ void EEVEE_bloom_draw(EEVEE_Data *vedata)
     copy_v2_v2(effects->unf_source_texel_size, effects->source_texel_size);
     effects->unf_source_buffer = effects->source_buffer;
 
-    GPU_framebuffer_bind(fbl->bloom_blit_fb);
-    DRW_draw_pass(psl->bloom_blit);
+    GPU_framebuffer_bind(inst->bloom_blit_fb);
+    DRW_draw_pass(inst->bloom_blit);
 
     /* Downsample */
     copy_v2_v2(effects->unf_source_texel_size, effects->blit_texel_size);
     effects->unf_source_buffer = effects->bloom_blit;
 
-    GPU_framebuffer_bind(fbl->bloom_down_fb[0]);
-    DRW_draw_pass(psl->bloom_downsample_first);
+    GPU_framebuffer_bind(inst->bloom_down_fb[0]);
+    DRW_draw_pass(inst->bloom_downsample_first);
 
     last = effects->bloom_downsample[0];
 
@@ -270,8 +265,8 @@ void EEVEE_bloom_draw(EEVEE_Data *vedata)
       copy_v2_v2(effects->unf_source_texel_size, effects->downsamp_texel_size[i - 1]);
       effects->unf_source_buffer = last;
 
-      GPU_framebuffer_bind(fbl->bloom_down_fb[i]);
-      DRW_draw_pass(psl->bloom_downsample);
+      GPU_framebuffer_bind(inst->bloom_down_fb[i]);
+      DRW_draw_pass(inst->bloom_downsample);
 
       /* Used in next loop */
       last = effects->bloom_downsample[i];
@@ -283,8 +278,8 @@ void EEVEE_bloom_draw(EEVEE_Data *vedata)
       effects->unf_source_buffer = last;
       effects->unf_base_buffer = effects->bloom_downsample[i];
 
-      GPU_framebuffer_bind(fbl->bloom_accum_fb[i]);
-      DRW_draw_pass(psl->bloom_upsample);
+      GPU_framebuffer_bind(inst->bloom_accum_fb[i]);
+      DRW_draw_pass(inst->bloom_upsample);
 
       last = effects->bloom_upsample[i];
     }
@@ -295,7 +290,7 @@ void EEVEE_bloom_draw(EEVEE_Data *vedata)
     effects->unf_base_buffer = effects->source_buffer;
 
     GPU_framebuffer_bind(effects->target_buffer);
-    DRW_draw_pass(psl->bloom_resolve);
+    DRW_draw_pass(inst->bloom_resolve);
     SWAP_BUFFERS();
   }
 }
@@ -304,23 +299,20 @@ void EEVEE_bloom_output_init(EEVEE_ViewLayerData * /*sldata*/,
                              EEVEE_Data *vedata,
                              uint /*tot_samples*/)
 {
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_TextureList *txl = vedata->txl;
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
   /* Create FrameBuffer. */
-  DRW_texture_ensure_fullscreen_2d(&txl->bloom_accum, GPU_R11F_G11F_B10F, DRWTextureFlag(0));
+  DRW_texture_ensure_fullscreen_2d(&inst->bloom_accum, GPU_R11F_G11F_B10F, DRWTextureFlag(0));
 
-  GPU_framebuffer_ensure_config(&fbl->bloom_pass_accum_fb,
-                                {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(txl->bloom_accum)});
+  GPU_framebuffer_ensure_config(&inst->bloom_pass_accum_fb,
+                                {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(inst->bloom_accum)});
 
   /* Create Pass and shgroup. */
   eevee_create_bloom_pass("Bloom Accumulate",
                           effects,
                           EEVEE_shaders_bloom_resolve_get(use_highres),
-                          &psl->bloom_accum_ps,
+                          &inst->bloom_accum_ps,
                           true,
                           true,
                           false);
@@ -328,15 +320,13 @@ void EEVEE_bloom_output_init(EEVEE_ViewLayerData * /*sldata*/,
 
 void EEVEE_bloom_output_accumulate(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_StorageList *stl = vedata->stl;
+  GOOENGINE_Instance *inst = vedata->instance;
 
-  if (stl->g_data->render_passes & EEVEE_RENDER_PASS_BLOOM) {
-    GPU_framebuffer_bind(fbl->bloom_pass_accum_fb);
-    DRW_draw_pass(psl->bloom_accum_ps);
+  if (inst->g_data->render_passes & EEVEE_RENDER_PASS_BLOOM) {
+    GPU_framebuffer_bind(inst->bloom_pass_accum_fb);
+    DRW_draw_pass(inst->bloom_accum_ps);
 
     /* Restore */
-    GPU_framebuffer_bind(fbl->main_fb);
+    GPU_framebuffer_bind(inst->main_fb);
   }
 }

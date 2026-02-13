@@ -9,7 +9,7 @@
  * invocations and overdraw.
  */
 
-#pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
+#include "effect_dof_lib.glsl"
 
 float bokeh_shape(vec2 center)
 {

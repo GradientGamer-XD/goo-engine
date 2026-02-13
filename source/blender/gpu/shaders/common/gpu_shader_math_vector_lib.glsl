@@ -347,6 +347,7 @@ uvec4 ceil_to_multiple(uvec4 a, uvec4 b)
   return ((a + b - 1u) / b) * b;
 }
 
+#ifndef COMMON_MATH_LIB_GLSL
 ivec2 divide_ceil(ivec2 a, ivec2 b)
 {
   return (a + b - 1) / b;
@@ -371,6 +372,7 @@ uvec4 divide_ceil(uvec4 a, uvec4 b)
 {
   return (a + b - 1u) / b;
 }
+#endif
 
 void min_max(vec2 vector, inout vec2 min_v, inout vec2 max_v)
 {
@@ -455,7 +457,7 @@ float distance_manhattan(vec4 a, vec4 b)
   return length_manhattan(a - b);
 }
 
-#ifndef GOO_COMMON_MATH_LIB_GLSL
+#ifndef COMMON_MATH_LIB_GLSL
 float distance_squared(vec2 a, vec2 b)
 {
   return length_squared(a - b);
@@ -552,7 +554,7 @@ vec4 safe_normalize_and_get_length(vec4 vector, out float out_length)
   return vec4(1.0, 0.0, 0.0, 0.0);
 }
 
-#ifndef GOO_COMMON_MATH_LIB_GLSL
+#ifndef COMMON_MATH_LIB_GLSL
 vec2 safe_normalize(vec2 vector)
 {
   float unused_length = 0.0;

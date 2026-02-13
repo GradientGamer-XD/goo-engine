@@ -1,4 +1,4 @@
-#pragma BLENDER_REQUIRE(gpu_shader_common_math_utils.glsl)
+#include "gpu_shader_common_math_utils.glsl"
 
 /* Utility functions */
 float bias_function(float x, float b)

@@ -2,8 +2,10 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(goo_common_view_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_lib.glsl)
+#pragma once
+
+#include "goo_common_view_lib.glsl"
+#include "common_math_lib.glsl"
 
 #define cocMul cocParams[0]  /* `distance * aperturesize * invsensorsize`. */
 #define cocBias cocParams[1] /* `aperturesize * invsensorsize`. */

@@ -57,8 +57,12 @@ void EEVEE_shadows_init(EEVEE_ViewLayerData *sldata)
   int sh_cube_size = scene_eval->eevee.shadow_cube_size;
   int sh_cascade_size = scene_eval->eevee.shadow_cascade_size;
   const bool sh_high_bitdepth = (scene_eval->eevee.flag & SCE_EEVEE_SHADOW_HIGH_BITDEPTH) != 0;
-  const bool sh_id_high_bitdepth = (scene_eval->eevee.flag & SCE_EEVEE_SHADOW_ID_HIGH_BITDEPTH) != 0;
+  const bool sh_id_high_bitdepth = (scene_eval->eevee.flag & SCE_EEVEE_SHADOW_ID_HIGH_BITDEPTH) !=
+                                   0;
   sldata->lights->soft_shadows = (scene_eval->eevee.flag & SCE_EEVEE_SHADOW_SOFT) != 0;
+
+  CLAMP(sh_cube_size, 256, 4096);
+  CLAMP(sh_cascade_size, 256, 4096);
 
   EEVEE_LightsInfo *linfo = sldata->lights;
   if ((linfo->shadow_cube_size != sh_cube_size) ||
@@ -68,7 +72,6 @@ void EEVEE_shadows_init(EEVEE_ViewLayerData *sldata)
     BLI_assert((sh_cube_size > 0) && (sh_cube_size <= 4096));
     DRW_TEXTURE_FREE_SAFE(sldata->shadow_cube_pool);
     DRW_TEXTURE_FREE_SAFE(sldata->shadow_cube_id_pool);
-    CLAMP(sh_cube_size, 1, 4096);
   }
 
   if ((linfo->shadow_cascade_size != sh_cascade_size) ||
@@ -78,7 +81,6 @@ void EEVEE_shadows_init(EEVEE_ViewLayerData *sldata)
     BLI_assert((sh_cascade_size > 0) && (sh_cascade_size <= 4096));
     DRW_TEXTURE_FREE_SAFE(sldata->shadow_cascade_pool);
     DRW_TEXTURE_FREE_SAFE(sldata->shadow_cascade_id_pool);
-    CLAMP(sh_cascade_size, 1, 4096);
   }
 
   linfo->shadow_high_bitdepth = sh_high_bitdepth;
@@ -89,9 +91,8 @@ void EEVEE_shadows_init(EEVEE_ViewLayerData *sldata)
 
 void EEVEE_shadows_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
+  GOOENGINE_Instance *inst = vedata->instance;
   EEVEE_LightsInfo *linfo = sldata->lights;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_PassList *psl = vedata->psl;
 
   EEVEE_ShadowCasterBuffer *backbuffer = linfo->shcaster_backbuffer;
   EEVEE_ShadowCasterBuffer *frontbuffer = linfo->shcaster_frontbuffer;
@@ -109,11 +110,12 @@ void EEVEE_shadows_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
   INIT_MINMAX(linfo->shcaster_aabb.min, linfo->shcaster_aabb.max);
 
   {
-    DRWState state = DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_SHADOW_OFFSET | DRW_STATE_WRITE_COLOR;
-    DRW_PASS_CREATE(psl->shadow_pass, state);
+    DRWState state = DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_SHADOW_OFFSET |
+                     DRW_STATE_WRITE_COLOR;
+    DRW_PASS_CREATE(inst->shadow_pass, state);
 
-    stl->g_data->shadow_shgrp = DRW_shgroup_create(EEVEE_shaders_shadow_sh_get(),
-                                                   psl->shadow_pass);
+    inst->g_data->shadow_shgrp = DRW_shgroup_create(EEVEE_shaders_shadow_sh_get(),
+                                                   inst->shadow_pass);
   }
 }
 
@@ -203,8 +205,8 @@ static bool sphere_bbox_intersect(const BoundSphere *bs, const EEVEE_BoundBox *b
 
 void EEVEE_shadows_update(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
   EEVEE_LightsInfo *linfo = sldata->lights;
   EEVEE_ShadowCasterBuffer *backbuffer = linfo->shcaster_backbuffer;
   EEVEE_ShadowCasterBuffer *frontbuffer = linfo->shcaster_frontbuffer;
@@ -212,7 +214,8 @@ void EEVEE_shadows_update(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
   eGPUTextureFormat shadow_pool_format = (linfo->shadow_high_bitdepth) ? GPU_DEPTH_COMPONENT24 :
                                                                          GPU_DEPTH_COMPONENT16;
                                                                          
-  eGPUTextureFormat shadow_id_pool_format = (linfo->shadow_id_high_bitdepth) ? GPU_R32UI : GPU_R16UI;
+  eGPUTextureFormat shadow_id_pool_format = (linfo->shadow_id_high_bitdepth) ? GPU_R32UI :
+                                                                               GPU_R16UI;
 
   /* Setup enough layers. */
   /* Free textures if number mismatch. */
@@ -247,6 +250,17 @@ void EEVEE_shadows_update(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
                                                               shadow_id_pool_format,
                                                               static_cast<DRWTextureFlag>(0),
                                                               nullptr);
+
+    /* GooEngine Fix: Manually clear all layers to 1.0 (Far) to prevent black artifacts. */
+    GPUFrameBuffer *tmp_fb = GPU_framebuffer_create("shadow_clear_fb");
+    int layers = max_ii(1, linfo->num_cube_layer * 6);
+    for (int i = 0; i < layers; i++) {
+      GPU_framebuffer_texture_layer_attach(tmp_fb, sldata->shadow_cube_pool, 0, i, 0);
+      GPU_framebuffer_bind(tmp_fb);
+      GPU_framebuffer_clear_depth(tmp_fb, 1.0f);
+    }
+    GPU_framebuffer_free(tmp_fb);
+    GPU_framebuffer_restore();
   }
 
   if (!sldata->shadow_cascade_pool) {
@@ -258,12 +272,24 @@ void EEVEE_shadows_update(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
         shadow_usage,
         DRWTextureFlag(DRW_TEX_FILTER | DRW_TEX_COMPARE),
         nullptr);
-    sldata->shadow_cascade_id_pool = DRW_texture_create_2d_array(linfo->shadow_cascade_size,
-                                                                 linfo->shadow_cascade_size,
-                                                                 max_ii(1, linfo->num_cascade_layer),
-                                                                 shadow_id_pool_format,
-                                                                 static_cast<DRWTextureFlag>(0),
-                                                                 nullptr);
+    sldata->shadow_cascade_id_pool = DRW_texture_create_2d_array(
+        linfo->shadow_cascade_size,
+        linfo->shadow_cascade_size,
+        max_ii(1, linfo->num_cascade_layer),
+        shadow_id_pool_format,
+        static_cast<DRWTextureFlag>(0),
+        nullptr);
+
+    /* GooEngine Fix: Manually clear all layers to 1.0 (Far) to prevent black artifacts. */
+    GPUFrameBuffer *tmp_fb = GPU_framebuffer_create("shadow_clear_fb");
+    int layers = max_ii(1, linfo->num_cascade_layer);
+    for (int i = 0; i < layers; i++) {
+      GPU_framebuffer_texture_layer_attach(tmp_fb, sldata->shadow_cascade_pool, 0, i, 0);
+      GPU_framebuffer_bind(tmp_fb);
+      GPU_framebuffer_clear_depth(tmp_fb, 1.0f);
+    }
+    GPU_framebuffer_free(tmp_fb);
+    GPU_framebuffer_restore();
   }
 
   if (sldata->shadow_fb == nullptr) {
@@ -374,23 +400,21 @@ void EEVEE_shadow_output_init(EEVEE_ViewLayerData *sldata,
                               EEVEE_Data *vedata,
                               uint /*tot_samples*/)
 {
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_TextureList *txl = vedata->txl;
-  EEVEE_PassList *psl = vedata->psl;
+  GOOENGINE_Instance *inst = vedata->instance;
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
   /* Create FrameBuffer. */
   const eGPUTextureFormat texture_format = GPU_R32F;
-  DRW_texture_ensure_fullscreen_2d(&txl->shadow_accum, texture_format, DRWTextureFlag(0));
+  DRW_texture_ensure_fullscreen_2d(&inst->shadow_accum, texture_format, DRWTextureFlag(0));
 
-  GPU_framebuffer_ensure_config(&fbl->shadow_accum_fb,
-                                {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(txl->shadow_accum)});
+  GPU_framebuffer_ensure_config(&inst->shadow_accum_fb,
+                                {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(inst->shadow_accum)});
 
   /* Create Pass and shgroup. */
-  DRW_PASS_CREATE(psl->shadow_accum_pass,
+  DRW_PASS_CREATE(inst->shadow_accum_pass,
                   DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_ALWAYS | DRW_STATE_BLEND_ADD_FULL);
   DRWShadingGroup *grp = DRW_shgroup_create(EEVEE_shaders_shadow_accum_sh_get(),
-                                            psl->shadow_accum_pass);
+                                            inst->shadow_accum_pass);
   DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", &dtxl->depth);
   DRW_shgroup_uniform_texture(grp, "utilTex", EEVEE_materials_get_util_tex());
   DRW_shgroup_uniform_block(grp, "probe_block", sldata->probe_ubo);
@@ -410,23 +434,30 @@ void EEVEE_shadow_output_init(EEVEE_ViewLayerData *sldata,
 
 void EEVEE_shadow_output_accumulate(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_EffectsInfo *effects = vedata->stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
 
-  if (fbl->shadow_accum_fb != nullptr) {
-    GPU_framebuffer_bind(fbl->shadow_accum_fb);
+  if (inst->shadow_accum_fb != nullptr) {
+    GPU_framebuffer_bind(inst->shadow_accum_fb);
 
     /* Clear texture. */
+#ifdef __APPLE__
+    /* Metal: Always clear shadow accumulation buffer to prevent stale data
+     * when switching between viewports/workspaces. This fixes issue where
+     * shadow intensity changes unexpectedly due to TAA not resetting properly. */
+    const float clear[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    GPU_framebuffer_clear_color(inst->shadow_accum_fb, clear);
+#else
+    EEVEE_EffectsInfo *effects = inst->effects;
     if (effects->taa_current_sample == 1) {
       const float clear[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-      GPU_framebuffer_clear_color(fbl->shadow_accum_fb, clear);
+      GPU_framebuffer_clear_color(inst->shadow_accum_fb, clear);
     }
+#endif
 
-    DRW_draw_pass(psl->shadow_accum_pass);
+    DRW_draw_pass(inst->shadow_accum_pass);
 
     /* Restore */
-    GPU_framebuffer_bind(fbl->main_fb);
+    GPU_framebuffer_bind(inst->main_fb);
   }
 }
 

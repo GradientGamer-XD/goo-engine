@@ -1,4 +1,4 @@
-#pragma BLENDER_REQUIRE(gpu_shader_common_math_utils.glsl)
+#include "gpu_shader_common_math_utils.glsl"
 
 void node_twirl(vec3 vector, vec3 center, float amount, out vec3 result)
 {

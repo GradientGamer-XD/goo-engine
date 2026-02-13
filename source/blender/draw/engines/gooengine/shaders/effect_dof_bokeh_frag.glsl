@@ -10,7 +10,7 @@
  * as it is way more complex and expensive to do.
  */
 
-#pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
+#include "effect_dof_lib.glsl"
 
 float polygon_sides_length(float sides_count)
 {

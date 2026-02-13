@@ -21,10 +21,9 @@
 
 int EEVEE_screen_raytrace_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
+  GOOENGINE_Instance *inst = vedata->instance;
   EEVEE_CommonUniformBuffer *common_data = &sldata->common_data;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  EEVEE_EffectsInfo *effects = inst->effects;
   const float *viewport_size = DRW_viewport_size_get();
 
   const DRWContextState *draw_ctx = DRW_context_state_get();
@@ -38,14 +37,14 @@ int EEVEE_screen_raytrace_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
       effects->ssr_was_persp = is_persp;
       DRW_viewport_request_redraw();
       EEVEE_temporal_sampling_reset(vedata);
-      stl->g_data->valid_double_buffer = false;
+      inst->g_data->valid_double_buffer = false;
     }
 
     if (!effects->ssr_was_valid_double_buffer) {
       DRW_viewport_request_redraw();
       EEVEE_temporal_sampling_reset(vedata);
     }
-    effects->ssr_was_valid_double_buffer = stl->g_data->valid_double_buffer;
+    effects->ssr_was_valid_double_buffer = inst->g_data->valid_double_buffer;
 
     effects->reflection_trace_full = (scene_eval->eevee.flag & SCE_EEVEE_SSR_HALF_RESOLUTION) == 0;
     common_data->ssr_thickness = scene_eval->eevee.ssr_thickness;
@@ -77,7 +76,7 @@ int EEVEE_screen_raytrace_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
     effects->ssr_specrough_input = DRW_texture_pool_query_2d_ex(
         UNPACK2(size_fs), format, usage, static_cast<DrawEngineType *>(owner));
 
-    GPU_framebuffer_texture_attach(fbl->main_fb, effects->ssr_specrough_input, 2, 0);
+    GPU_framebuffer_texture_attach(inst->main_fb, effects->ssr_specrough_input, 2, 0);
 
     /* Ray-tracing output. */
     effects->ssr_hit_output = DRW_texture_pool_query_2d_ex(
@@ -85,7 +84,7 @@ int EEVEE_screen_raytrace_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
     effects->ssr_hit_depth = DRW_texture_pool_query_2d_ex(
         UNPACK2(tracing_res), GPU_R16F, usage, static_cast<DrawEngineType *>(owner));
 
-    GPU_framebuffer_ensure_config(&fbl->screen_tracing_fb,
+    GPU_framebuffer_ensure_config(&inst->screen_tracing_fb,
                                   {
                                       GPU_ATTACHMENT_NONE,
                                       GPU_ATTACHMENT_TEXTURE(effects->ssr_hit_output),
@@ -103,7 +102,7 @@ int EEVEE_screen_raytrace_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
   }
 
   /* Cleanup to release memory */
-  GPU_FRAMEBUFFER_FREE_SAFE(fbl->screen_tracing_fb);
+  GPU_FRAMEBUFFER_FREE_SAFE(inst->screen_tracing_fb);
   effects->ssr_specrough_input = nullptr;
   effects->ssr_hit_output = nullptr;
 
@@ -112,11 +111,9 @@ int EEVEE_screen_raytrace_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 
 void EEVEE_screen_raytrace_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_TextureList *txl = vedata->txl;
-  EEVEE_EffectsInfo *effects = stl->effects;
-  LightCache *lcache = stl->g_data->light_cache;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
+  LightCache *lcache = inst->g_data->light_cache;
 
   if ((effects->enabled_effects & EFFECT_SSR) != 0) {
     GPUShader *trace_shader = EEVEE_shaders_effect_reflection_trace_sh_get();
@@ -139,12 +136,54 @@ void EEVEE_screen_raytrace_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *v
      *   mipmap for each ray using its PDF. (filtered importance sampling)
      *   We then evaluate the lighting from the probes and mix the results together.
      */
-    DRW_PASS_CREATE(psl->ssr_raytrace, DRW_STATE_WRITE_COLOR);
-    DRWShadingGroup *grp = DRW_shgroup_create(trace_shader, psl->ssr_raytrace);
+    DRW_PASS_CREATE(inst->ssr_raytrace, DRW_STATE_WRITE_COLOR);
+    DRWShadingGroup *grp = DRW_shgroup_create(trace_shader, inst->ssr_raytrace);
     DRW_shgroup_uniform_texture_ref(grp, "normalBuffer", &effects->ssr_normal_input);
     DRW_shgroup_uniform_texture_ref(grp, "specroughBuffer", &effects->ssr_specrough_input);
-    DRW_shgroup_uniform_texture_ref(grp, "maxzBuffer", &txl->maxzbuffer);
-    DRW_shgroup_uniform_texture_ref(grp, "planarDepth", &vedata->txl->planar_depth);
+    DRW_shgroup_uniform_texture_ref(grp, "maxzBuffer", &inst->maxzbuffer);
+#ifdef __APPLE__
+    /* planarDepth: Use dummy 2D array if not available */
+    if (inst->planar_depth != nullptr) {
+      DRW_shgroup_uniform_texture_ref(grp, "planarDepth", &inst->planar_depth);
+    }
+    else {
+      DRW_shgroup_uniform_texture(grp, "planarDepth", EEVEE_materials_get_dummy_2d_array());
+    }
+    /* probeCubes: Must be cube array, use dummy if not correct type */
+    if (lcache->cube_tx.tex != nullptr && GPU_texture_is_cube(lcache->cube_tx.tex)) {
+      DRW_shgroup_uniform_texture_ref(grp, "probeCubes", &lcache->cube_tx.tex);
+    }
+    else {
+      DRW_shgroup_uniform_texture(grp, "probeCubes", EEVEE_materials_get_dummy_cube_array());
+    }
+    /* irradianceGrid: Must be 2D array, use dummy if wrong type */
+    if (lcache->grid_tx.tex != nullptr && !GPU_texture_is_cube(lcache->grid_tx.tex)) {
+      DRW_shgroup_uniform_texture_ref(grp, "irradianceGrid", &lcache->grid_tx.tex);
+    }
+    else {
+      DRW_shgroup_uniform_texture(grp, "irradianceGrid", EEVEE_materials_get_dummy_2d_array());
+    }
+    /* horizonBuffer: Must be 2D texture, use util_tex as fallback */
+    if (effects->gtao_horizons != nullptr && !GPU_texture_is_array(effects->gtao_horizons)) {
+      DRW_shgroup_uniform_texture_ref(grp, "horizonBuffer", &effects->gtao_horizons);
+    }
+    else {
+      DRW_shgroup_uniform_texture(grp, "horizonBuffer", EEVEE_materials_get_util_tex());
+    }
+    /* probePlanars: 2D array fallback */
+    if (inst->planar_pool != nullptr) {
+      DRW_shgroup_uniform_texture_ref(grp, "probePlanars", &inst->planar_pool);
+    }
+    else {
+      DRW_shgroup_uniform_texture(grp, "probePlanars", EEVEE_materials_get_dummy_2d_array());
+    }
+#else
+    DRW_shgroup_uniform_texture_ref(grp, "planarDepth", &inst->planar_depth);
+    DRW_shgroup_uniform_texture_ref(grp, "probeCubes", &lcache->cube_tx.tex);
+    DRW_shgroup_uniform_texture_ref(grp, "irradianceGrid", &lcache->grid_tx.tex);
+    DRW_shgroup_uniform_texture_ref(grp, "horizonBuffer", &effects->gtao_horizons);
+    DRW_shgroup_uniform_texture_ref(grp, "probePlanars", &inst->planar_pool);
+#endif
     DRW_shgroup_uniform_texture(grp, "utilTex", EEVEE_materials_get_util_tex());
     DRW_shgroup_uniform_block(grp, "grid_block", sldata->grid_ubo);
     DRW_shgroup_uniform_block(grp, "probe_block", sldata->probe_ubo);
@@ -165,29 +204,65 @@ void EEVEE_screen_raytrace_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *v
         if (i == 0) {
           /* Prepare Reflection Probes resolve pass. */
           GPUShader *resolve_shader_probe = EEVEE_shaders_effect_reflection_resolve_probe_sh_get();
-          DRW_PASS_CREATE(psl->ssr_resolve_probe, DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ADD);
-          grp = DRW_shgroup_create(resolve_shader_probe, psl->ssr_resolve_probe);
+          DRW_PASS_CREATE(inst->ssr_resolve_probe, DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ADD);
+          grp = DRW_shgroup_create(resolve_shader_probe, inst->ssr_resolve_probe);
         }
         else if (i == 1) {
           /* Prepare SSR resolve pass. */
           GPUShader *resolve_shader_refl = EEVEE_shaders_effect_reflection_resolve_refl_sh_get();
-          DRW_PASS_CREATE(psl->ssr_resolve_refl, DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ADD);
-          grp = DRW_shgroup_create(resolve_shader_refl, psl->ssr_resolve_refl);
+          DRW_PASS_CREATE(inst->ssr_resolve_refl, DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ADD);
+          grp = DRW_shgroup_create(resolve_shader_refl, inst->ssr_resolve_refl);
         }
 
-        DRW_shgroup_uniform_texture_ref(grp, "normalBuffer", &effects->ssr_normal_input);
-        DRW_shgroup_uniform_texture_ref(grp, "specroughBuffer", &effects->ssr_specrough_input);
+       DRW_shgroup_uniform_texture_ref(grp, "normalBuffer", &effects->ssr_normal_input);
+       DRW_shgroup_uniform_texture_ref(grp, "specroughBuffer", &effects->ssr_specrough_input);
+#ifdef __APPLE__
+      /* probeCubes: Check if texture is actually a cube array (not 2D array fallback).
+       * Metal may fail to create cube array textures and fall back to 2D array. */
+      if (lcache->cube_tx.tex != nullptr && GPU_texture_is_cube(lcache->cube_tx.tex)) {
         DRW_shgroup_uniform_texture_ref(grp, "probeCubes", &lcache->cube_tx.tex);
-        DRW_shgroup_uniform_texture_ref(grp, "probePlanars", &vedata->txl->planar_pool);
-        DRW_shgroup_uniform_texture_ref(grp, "planarDepth", &vedata->txl->planar_depth);
-        DRW_shgroup_uniform_texture_ref_ex(grp, "hitBuffer", &effects->ssr_hit_output, no_filter);
-        DRW_shgroup_uniform_texture_ref_ex(grp, "hitDepth", &effects->ssr_hit_depth, no_filter);
-        DRW_shgroup_uniform_texture_ref(grp, "colorBuffer", &txl->filtered_radiance);
-        DRW_shgroup_uniform_texture_ref(grp, "maxzBuffer", &txl->maxzbuffer);
-        DRW_shgroup_uniform_texture_ref(grp, "shadowCubeTexture", &sldata->shadow_cube_pool);
-        DRW_shgroup_uniform_texture_ref(grp, "shadowCascadeTexture", &sldata->shadow_cascade_pool);
-        DRW_shgroup_uniform_texture_ref(grp, "shadowCubeIDTexture", &sldata->shadow_cube_id_pool);
-        DRW_shgroup_uniform_texture_ref(grp, "shadowCascadeIDTexture", &sldata->shadow_cascade_id_pool);
+      }
+      else {
+        DRW_shgroup_uniform_texture(grp, "probeCubes", EEVEE_materials_get_dummy_cube_array());
+      }
+      if (inst->planar_pool != nullptr) {
+        DRW_shgroup_uniform_texture_ref(grp, "probePlanars", &inst->planar_pool);
+      }
+      else {
+        DRW_shgroup_uniform_texture(grp, "probePlanars", EEVEE_materials_get_dummy_2d_array());
+      }
+      if (inst->planar_depth != nullptr) {
+        DRW_shgroup_uniform_texture_ref(grp, "planarDepth", &inst->planar_depth);
+      }
+      else {
+        DRW_shgroup_uniform_texture(grp, "planarDepth", EEVEE_materials_get_dummy_2d_array());
+      }
+#else
+      DRW_shgroup_uniform_texture_ref(grp, "probeCubes", &lcache->cube_tx.tex);
+      DRW_shgroup_uniform_texture_ref(grp, "probePlanars", &inst->planar_pool);
+      DRW_shgroup_uniform_texture_ref(grp, "planarDepth", &inst->planar_depth);
+#endif
+      DRW_shgroup_uniform_texture_ref_ex(grp, "hitBuffer", &effects->ssr_hit_output, no_filter);
+      DRW_shgroup_uniform_texture_ref_ex(grp, "hitDepth", &effects->ssr_hit_depth, no_filter);
+      DRW_shgroup_uniform_texture_ref(grp, "colorBuffer", &inst->filtered_radiance);
+      DRW_shgroup_uniform_texture_ref(grp, "maxzBuffer", &inst->maxzbuffer);
+      DRW_shgroup_uniform_texture_ref(grp, "shadowCubeTexture", &sldata->shadow_cube_pool);
+      DRW_shgroup_uniform_texture_ref(grp, "shadowCascadeTexture", &sldata->shadow_cascade_pool);
+      DRW_shgroup_uniform_texture_ref(grp, "shadowCubeIDTexture", &sldata->shadow_cube_id_pool);
+      DRW_shgroup_uniform_texture_ref(
+          grp, "shadowCascadeIDTexture", &sldata->shadow_cascade_id_pool);
+#ifdef __APPLE__
+      /* irradianceGrid: Check if texture is 2D array (not cube array).
+       * On Metal, we need to verify it's the correct type. */
+      if (lcache->grid_tx.tex != nullptr && !GPU_texture_is_cube(lcache->grid_tx.tex)) {
+        DRW_shgroup_uniform_texture_ref(grp, "irradianceGrid", &lcache->grid_tx.tex);
+      }
+      else {
+        DRW_shgroup_uniform_texture(grp, "irradianceGrid", EEVEE_materials_get_dummy_2d_array());
+      }
+#else
+      DRW_shgroup_uniform_texture_ref(grp, "irradianceGrid", &lcache->grid_tx.tex);
+#endif
         DRW_shgroup_uniform_texture(grp, "utilTex", EEVEE_materials_get_util_tex());
         DRW_shgroup_uniform_block(grp, "light_block", sldata->light_ubo);
         DRW_shgroup_uniform_block(grp, "shadow_block", sldata->shadow_ubo);
@@ -197,24 +272,33 @@ void EEVEE_screen_raytrace_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *v
         DRW_shgroup_uniform_block(grp, "common_block", sldata->common_ubo);
         DRW_shgroup_uniform_block(grp, "renderpass_block", sldata->renderpass_ubo.combined);
         DRW_shgroup_uniform_int(grp, "samplePoolOffset", &effects->taa_current_sample, 1);
+#ifdef __APPLE__
+        if (effects->gtao_horizons != nullptr) {
+          DRW_shgroup_uniform_texture_ref(grp, "horizonBuffer", &effects->gtao_horizons);
+        }
+        else {
+          DRW_shgroup_uniform_texture(grp, "horizonBuffer", EEVEE_materials_get_util_tex());
+        }
+#else
         DRW_shgroup_uniform_texture_ref(grp, "horizonBuffer", &effects->gtao_horizons);
+#endif
         DRW_shgroup_call_procedural_triangles(grp, nullptr, 1);
       }
     }
     else {
       /* Prepare standard reflections resolve pass. */
-      DRW_PASS_CREATE(psl->ssr_resolve, DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ADD);
-      grp = DRW_shgroup_create(resolve_shader, psl->ssr_resolve);
+      DRW_PASS_CREATE(inst->ssr_resolve, DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ADD);
+      grp = DRW_shgroup_create(resolve_shader, inst->ssr_resolve);
 
       DRW_shgroup_uniform_texture_ref(grp, "normalBuffer", &effects->ssr_normal_input);
       DRW_shgroup_uniform_texture_ref(grp, "specroughBuffer", &effects->ssr_specrough_input);
       DRW_shgroup_uniform_texture_ref(grp, "probeCubes", &lcache->cube_tx.tex);
-      DRW_shgroup_uniform_texture_ref(grp, "probePlanars", &vedata->txl->planar_pool);
-      DRW_shgroup_uniform_texture_ref(grp, "planarDepth", &vedata->txl->planar_depth);
+      DRW_shgroup_uniform_texture_ref(grp, "probePlanars", &inst->planar_pool);
+      DRW_shgroup_uniform_texture_ref(grp, "planarDepth", &inst->planar_depth);
       DRW_shgroup_uniform_texture_ref_ex(grp, "hitBuffer", &effects->ssr_hit_output, no_filter);
       DRW_shgroup_uniform_texture_ref_ex(grp, "hitDepth", &effects->ssr_hit_depth, no_filter);
-      DRW_shgroup_uniform_texture_ref(grp, "colorBuffer", &txl->filtered_radiance);
-      DRW_shgroup_uniform_texture_ref(grp, "maxzBuffer", &txl->maxzbuffer);
+      DRW_shgroup_uniform_texture_ref(grp, "colorBuffer", &inst->filtered_radiance);
+      DRW_shgroup_uniform_texture_ref(grp, "maxzBuffer", &inst->maxzbuffer);
       DRW_shgroup_uniform_texture_ref(grp, "shadowCubeTexture", &sldata->shadow_cube_pool);
       DRW_shgroup_uniform_texture_ref(grp, "shadowCascadeTexture", &sldata->shadow_cascade_pool);
       DRW_shgroup_uniform_texture_ref(grp, "shadowCubeIDTexture", &sldata->shadow_cube_id_pool);
@@ -228,7 +312,19 @@ void EEVEE_screen_raytrace_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *v
       DRW_shgroup_uniform_block(grp, "common_block", sldata->common_ubo);
       DRW_shgroup_uniform_block(grp, "renderpass_block", sldata->renderpass_ubo.combined);
       DRW_shgroup_uniform_int(grp, "samplePoolOffset", &effects->taa_current_sample, 1);
+#ifdef __APPLE__
+      /* horizonBuffer: Expects 2D texture. Use util_tex as fallback which is always 2D. */
+      if (effects->gtao_horizons != nullptr && !GPU_texture_is_array(effects->gtao_horizons)) {
+        DRW_shgroup_uniform_texture_ref(grp, "horizonBuffer", &effects->gtao_horizons);
+      }
+      else {
+        /* Use util_tex as it's a 2D texture (correct type for horizonBuffer) */
+        DRW_shgroup_uniform_texture(grp, "horizonBuffer", EEVEE_materials_get_util_tex());
+      }
+#else
       DRW_shgroup_uniform_texture_ref(grp, "horizonBuffer", &effects->gtao_horizons);
+#endif
+
       DRW_shgroup_call_procedural_triangles(grp, nullptr, 1);
     }
   }
@@ -236,48 +332,42 @@ void EEVEE_screen_raytrace_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *v
 
 void EEVEE_refraction_compute(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_TextureList *txl = vedata->txl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
   if ((effects->enabled_effects & EFFECT_REFRACT) != 0) {
-    EEVEE_effects_downsample_radiance_buffer(vedata, txl->color);
+    EEVEE_effects_downsample_radiance_buffer(vedata, inst->color);
 
     /* Restore */
-    GPU_framebuffer_bind(fbl->main_fb);
+    GPU_framebuffer_bind(inst->main_fb);
   }
 }
 
 void EEVEE_reflection_compute(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_TextureList *txl = vedata->txl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
-  if (((effects->enabled_effects & EFFECT_SSR) != 0) && stl->g_data->valid_double_buffer) {
-
+  if (((effects->enabled_effects & EFFECT_SSR) != 0) && inst->g_data->valid_double_buffer) {
     /* Ray-trace. */
-    GPU_framebuffer_bind(fbl->screen_tracing_fb);
-    DRW_draw_pass(psl->ssr_raytrace);
+    GPU_framebuffer_bind(inst->screen_tracing_fb);
+    DRW_draw_pass(inst->ssr_raytrace);
 
-    EEVEE_effects_downsample_radiance_buffer(vedata, txl->color_double_buffer);
+    EEVEE_effects_downsample_radiance_buffer(vedata, inst->color_double_buffer);
 
-    GPU_framebuffer_bind(fbl->main_color_fb);
+    GPU_framebuffer_bind(inst->main_color_fb);
 
     if (effects->use_split_ssr_pass) {
       /* Trace reflections for probes and SSR independently */
-      DRW_draw_pass(psl->ssr_resolve_probe);
-      DRW_draw_pass(psl->ssr_resolve_refl);
+      DRW_draw_pass(inst->ssr_resolve_probe);
+      DRW_draw_pass(inst->ssr_resolve_refl);
     }
     else {
-      DRW_draw_pass(psl->ssr_resolve);
+      DRW_draw_pass(inst->ssr_resolve);
     }
 
     /* Restore */
-    GPU_framebuffer_bind(fbl->main_fb);
+    GPU_framebuffer_bind(inst->main_fb);
   }
 }
 
@@ -285,39 +375,36 @@ void EEVEE_reflection_output_init(EEVEE_ViewLayerData * /*sldata*/,
                                   EEVEE_Data *vedata,
                                   uint tot_samples)
 {
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_TextureList *txl = vedata->txl;
+  GOOENGINE_Instance *inst = vedata->instance;
 
   /* Create FrameBuffer. */
   const eGPUTextureFormat texture_format = (tot_samples > 256) ? GPU_RGBA32F : GPU_RGBA16F;
-  DRW_texture_ensure_fullscreen_2d(&txl->ssr_accum, texture_format, DRWTextureFlag(0));
+  DRW_texture_ensure_fullscreen_2d(&inst->ssr_accum, texture_format, DRWTextureFlag(0));
 
-  GPU_framebuffer_ensure_config(&fbl->ssr_accum_fb,
-                                {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(txl->ssr_accum)});
+  GPU_framebuffer_ensure_config(&inst->ssr_accum_fb,
+                                {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(inst->ssr_accum)});
 }
 
 void EEVEE_reflection_output_accumulate(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = vedata->stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
-  if (stl->g_data->valid_double_buffer) {
-    GPU_framebuffer_bind(fbl->ssr_accum_fb);
+  if (inst->g_data->valid_double_buffer) {
+    GPU_framebuffer_bind(inst->ssr_accum_fb);
 
     /* Clear texture. */
     if (effects->taa_current_sample == 1) {
       const float clear[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-      GPU_framebuffer_clear_color(fbl->ssr_accum_fb, clear);
+      GPU_framebuffer_clear_color(inst->ssr_accum_fb, clear);
     }
 
     if (effects->use_split_ssr_pass) {
-      DRW_draw_pass(psl->ssr_resolve_probe);
-      DRW_draw_pass(psl->ssr_resolve_refl);
+      DRW_draw_pass(inst->ssr_resolve_probe);
+      DRW_draw_pass(inst->ssr_resolve_refl);
     }
     else {
-      DRW_draw_pass(psl->ssr_resolve);
+      DRW_draw_pass(inst->ssr_resolve);
     }
   }
 }

@@ -2,8 +2,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(goo_common_view_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_geom_lib.glsl)
+#include "goo_common_view_lib.glsl"
+#include "common_math_geom_lib.glsl"
 
 #define PASS_POST_UNDEFINED 0
 #define PASS_POST_ACCUMULATED_COLOR 1

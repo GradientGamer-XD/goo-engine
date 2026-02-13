@@ -76,11 +76,7 @@ class Preprocessor {
       parse_library_functions(str);
     }
     if (do_include_parsing) {
-      if (str.find("BLENDER_REQUIRE") == std::string::npos) {
-        include_parse(str);
-      } else {
-        goo_require_parse(str);
-      }
+      include_parse(str);
     }
     str = preprocessor_directive_mutation(str);
     if (do_string_mutation) {
@@ -196,21 +192,6 @@ class Preprocessor {
       }
       if (dependency_name.find("info.hh") != std::string::npos) {
         /* Skip info files. They are only for IDE linting. */
-        return;
-      }
-      dependencies_.emplace_back(dependency_name);
-    });
-  }
-
-  void goo_require_parse(const std::string &str)
-  {
-    /* Parse include directive before removing them. */
-    std::regex regex(R"(#pragma\s*BLENDER_REQUIRE\((\w+\.\w+)\))");
-
-    regex_global_search(str, regex, [&](const std::smatch &match) {
-      std::string dependency_name = match[1].str();
-      if (dependency_name == "gpu_glsl_cpp_stubs.hh") {
-        /* Skip GLSL-C++ stubs. They are only for IDE linting. */
         return;
       }
       dependencies_.emplace_back(dependency_name);

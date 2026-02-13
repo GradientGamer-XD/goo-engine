@@ -12,13 +12,13 @@
  * https://media.contentapi.ea.com/content/dam/ea/seed/presentations/dd18-seed-raytracing-in-hybrid-real-time-rendering.pdf
  */
 
-#pragma BLENDER_REQUIRE(goo_common_math_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_geom_lib.glsl)
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-#pragma BLENDER_REQUIRE(raytrace_lib.glsl)
-#pragma BLENDER_REQUIRE(lightprobe_lib.glsl)
-#pragma BLENDER_REQUIRE(bsdf_sampling_lib.glsl)
-#pragma BLENDER_REQUIRE(effect_reflection_lib.glsl)
+#include "common_math_lib.glsl"
+#include "common_math_geom_lib.glsl"
+#include "common_utiltex_lib.glsl"
+#include "raytrace_lib.glsl"
+#include "lightprobe_lib.glsl"
+#include "bsdf_sampling_lib.glsl"
+#include "effect_reflection_lib.glsl"
 
 void main()
 {

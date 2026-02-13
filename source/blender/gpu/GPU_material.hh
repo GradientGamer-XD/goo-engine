@@ -94,6 +94,7 @@ enum eGPUMaterialFlag {
 
   /* HACK(fclem) Tells the environment texture node to not bail out if empty. */
   GPU_MATFLAG_LOOKDEV_HACK = (1 << 30),
+  GPU_MATFLAG_SET_DEPTH = (1 << 31),
 };
 
 ENUM_OPERATORS(eGPUMaterialFlag, GPU_MATFLAG_LOOKDEV_HACK);

@@ -2,12 +2,14 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-#pragma BLENDER_REQUIRE(lights_lib.glsl)
-#pragma BLENDER_REQUIRE(lightprobe_lib.glsl)
-#pragma BLENDER_REQUIRE(ambient_occlusion_lib.glsl)
-#pragma BLENDER_REQUIRE(closure_eval_lib.glsl)
-#pragma BLENDER_REQUIRE(renderpass_lib.glsl)
+#pragma once
+
+#include "common_utiltex_lib.glsl"
+#include "lights_lib.glsl"
+#include "lightprobe_lib.glsl"
+#include "ambient_occlusion_lib.glsl"
+#include "closure_eval_lib.glsl"
+#include "renderpass_lib.glsl"
 
 struct ClosureInputTranslucent {
   vec3 N; /** Shading normal. */

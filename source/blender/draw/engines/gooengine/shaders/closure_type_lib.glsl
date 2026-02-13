@@ -2,10 +2,12 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(goo_gpu_shader_codegen_lib.glsl)
-/* #pragma (goo_common_math_geom_lib.glsl) */
-/* #pragma (common_uniforms_lib.glsl) */
-/* #pragma (renderpass_lib.glsl) */
+#pragma once
+
+#include "gpu_shader_codegen_lib.glsl"
+/* #include "goo_common_math_geom_lib.glsl" */
+/* #include "common_uniforms_lib.glsl" */
+/* #include "renderpass_lib.glsl" */
 
 struct Closure {
 #ifdef VOLUMETRICS

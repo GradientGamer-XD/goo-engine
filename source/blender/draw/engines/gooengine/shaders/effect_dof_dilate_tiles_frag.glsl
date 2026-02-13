@@ -7,7 +7,7 @@
  * their neighborhood. This pass is repeated multiple time until the maximum CoC can be covered.
  */
 
-#pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
+#include "effect_dof_lib.glsl"
 
 #define tile_to_fullres_factor float(DOF_TILE_DIVISOR)
 

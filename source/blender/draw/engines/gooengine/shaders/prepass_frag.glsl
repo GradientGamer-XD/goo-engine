@@ -3,15 +3,15 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /* Required by some nodes. */
-#pragma BLENDER_REQUIRE(goo_common_hair_lib.glsl)
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_geom_lib.glsl)
+#include "common_hair_lib.glsl"
+#include "common_utiltex_lib.glsl"
+#include "common_math_lib.glsl"
+#include "common_math_geom_lib.glsl"
 
-#pragma BLENDER_REQUIRE(goo_common_view_lib.glsl)
-#pragma BLENDER_REQUIRE(common_uniforms_lib.glsl)
-#pragma BLENDER_REQUIRE(closure_eval_surface_lib.glsl)
-#pragma BLENDER_REQUIRE(surface_lib.glsl)
+#include "goo_common_view_lib.glsl"
+#include "common_uniforms_lib.glsl"
+#include "closure_eval_surface_lib.glsl"
+#include "surface_lib.glsl"
 
 #ifdef USE_ALPHA_HASH
 
@@ -93,6 +93,14 @@ void main()
 #endif
 
   resource_id_out = resource_id;
+  /* GooEngine Fix: Output Normal to RG16 buffer (Loc 1).
+   * Use viewNormal from vertex shader interface, which is always initialized.
+   * g_data.N is only initialized when USE_ALPHA_HASH is defined. */
+#ifndef SHADOW_PASS
+  /* viewNormal comes from surface_lib interface, already in view space. */
+  vec3 N = normalize(viewNormal);
+  out_normal = normal_encode(N, vec3(0.0));
+#endif
 }
 
 /* Passthrough. */

@@ -2,12 +2,14 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(engine_eevee_shared_defines.h)
-#pragma BLENDER_REQUIRE(engine_eevee_legacy_shared.h)
-#pragma BLENDER_REQUIRE(goo_common_math_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_geom_lib.glsl)
-#pragma BLENDER_REQUIRE(raytrace_lib.glsl)
-#pragma BLENDER_REQUIRE(ltc_lib.glsl)
+#pragma once
+
+#include "engine_eevee_shared_defines.h"
+#include "engine_eevee_legacy_shared.h"
+#include "common_math_lib.glsl"
+#include "common_math_geom_lib.glsl"
+#include "raytrace_lib.glsl"
+#include "ltc_lib.glsl"
 
 /* ---------------------------------------------------------------------- */
 /** \name Structure
@@ -180,7 +182,7 @@ float sample_ID_texture(usampler2DArray TEX_ID, vec3 coord, bool match)
 
   ivec3 tex_size = textureSize(TEX_ID, 0);
   // WHY THE FLYING FUCK DO WE NEED AN EXTRA 0.00195?
-  vec2 fra = fract((coord.xy * tex_size.xy) + vec2(0.50195, 0.50195));
+  vec2 fra = fract((coord.xy * vec2(tex_size.xy)) + vec2(0.50195, 0.50195));
 
   return mix(
     mix(matches.w, matches.z, fra.x),
@@ -201,6 +203,16 @@ float sample_cube_shadow(int shadow_id, vec3 P, bool match_shadow_id)
   vec3 cubevec = transform_point(scube(data_id).shadowmat, P);
   float dist = max(sd(shadow_id).sh_near, max_v3(abs(cubevec)) - sd(shadow_id).sh_bias);
   dist = buffer_depth(true, dist, sd(shadow_id).sh_far, sd(shadow_id).sh_near);
+  
+  /* Metal: buffer_depth outputs OpenGL depth range.
+   * Adjust to Metal depth range [0, 1] by transforming from [-1, 1] -> [0, 1].
+   * GPU projection matrices should already handle this, but buffer_depth uses
+   * raw perspective formula. */
+#ifdef GPU_METAL
+  /* Clamp to [0, 1] to prevent comparison issues */
+  dist = clamp(dist, 0.0, 1.0);
+#endif
+  
   /* Manual Shadow Cube Layer indexing. */
   /* TODO: Shadow Cube Array. */
   float face = cubeFaceIndexEEVEE(cubevec);
@@ -215,6 +227,8 @@ float sample_cube_shadow(int shadow_id, vec3 P, bool match_shadow_id)
   return texture(shadowCubeTexture, coord_f);
 #endif
 }
+/* Uncomment to debug shadow depth values - will show depth as grayscale */
+
 
 float sample_cascade_shadow(int shadow_id, vec3 P, bool match_shadow_id)
 {
@@ -230,9 +244,19 @@ float sample_cascade_shadow(int shadow_id, vec3 P, bool match_shadow_id)
   float blend = fract(tot_weight);
   float vis = weights.w;
   vec4 coord, shpos;
+  float compare_z;
+  
   /* Main cascade. */
   shpos = scascade(data_id).shadowmat[cascade] * vec4(P, 1.0);
-  coord = vec4(shpos.xy, tex_id + float(cascade), shpos.z - sd(shadow_id).sh_bias);
+  compare_z = shpos.z - sd(shadow_id).sh_bias;
+  
+  /* Metal: Ensure comparison depth is in [0, 1] range */
+#ifdef GPU_METAL
+  compare_z = clamp(compare_z, 0.0, 1.0);
+#endif
+  
+  coord = vec4(shpos.xy, tex_id + float(cascade), compare_z);
+
 #ifdef USE_SHADOW_ID
   float id_sample = sample_ID_texture(shadowCascadeIDTexture, coord.xyz, match_shadow_id);
   vis += min(texture(shadowCascadeTexture, coord) + id_sample, 1.0)  * (1.0 - blend);
@@ -243,7 +267,14 @@ float sample_cascade_shadow(int shadow_id, vec3 P, bool match_shadow_id)
   cascade = min(3, cascade + 1);
   /* Second cascade. */
   shpos = scascade(data_id).shadowmat[cascade] * vec4(P, 1.0);
-  coord = vec4(shpos.xy, tex_id + float(cascade), shpos.z - sd(shadow_id).sh_bias);
+  compare_z = shpos.z - sd(shadow_id).sh_bias;
+  
+  /* Metal: Ensure comparison depth is in [0, 1] range */
+#ifdef GPU_METAL
+  compare_z = clamp(compare_z, 0.0, 1.0);
+#endif
+  
+  coord = vec4(shpos.xy, tex_id + float(cascade), compare_z);
 #ifdef USE_SHADOW_ID
   id_sample = sample_ID_texture(shadowCascadeIDTexture, coord.xyz, match_shadow_id);
   vis += min(texture(shadowCascadeTexture, coord) + id_sample, 1.0) * blend;

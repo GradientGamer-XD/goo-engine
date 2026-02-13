@@ -6,7 +6,7 @@
  * Simple down-sample shader. Takes the average of the 4 texels of lower mip.
  */
 
-#pragma BLENDER_REQUIRE(goo_common_math_lib.glsl)
+#include "common_math_lib.glsl"
 
 void main()
 {

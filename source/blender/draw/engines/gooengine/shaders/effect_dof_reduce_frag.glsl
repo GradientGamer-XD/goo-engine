@@ -7,7 +7,7 @@
  * Also decide if a pixel is to be convolved by scattering or gathering during the first pass.
  */
 
-#pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
+#include "effect_dof_lib.glsl"
 
 #ifdef COPY_PASS
 

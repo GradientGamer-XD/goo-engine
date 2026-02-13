@@ -1291,7 +1291,7 @@ void to_loc_rot_scale(mat4x4 mat,
   to_rot_scale(to_float3x3(mat), r_rotation, r_scale, allow_negative_scale);
 }
 
-#ifndef GOO_COMMON_MATH_LIB_GLSL
+#ifndef COMMON_MATH_LIB_GLSL
 vec3 transform_point(mat3x3 mat, vec3 point)
 {
   return mat * point;

@@ -2,7 +2,9 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(bsdf_common_lib.glsl)
+#pragma once
+
+#include "bsdf_common_lib.glsl"
 
 /* ---------------------------------------------------------------------- */
 /** \name Utiltex

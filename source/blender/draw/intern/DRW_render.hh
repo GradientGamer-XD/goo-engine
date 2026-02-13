@@ -164,14 +164,6 @@ GPUTexture *DRW_texture_create_2d(
     int w, int h, eGPUTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 GPUTexture *DRW_texture_create_2d_array(
     int w, int h, int d, eGPUTextureFormat format, DRWTextureFlag flags, const float *fpixels);
-GPUTexture *DRW_texture_create_3d(
-    int w, int h, int d, eGPUTextureFormat format, DRWTextureFlag flags, const float *fpixels);
-GPUTexture *DRW_texture_create_cube(int w,
-                                    eGPUTextureFormat format,
-                                    DRWTextureFlag flags,
-                                    const float *fpixels);
-GPUTexture *DRW_texture_create_cube_array(
-    int w, int d, eGPUTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 
 void DRW_texture_ensure_fullscreen_2d(GPUTexture **tex,
                                       eGPUTextureFormat format,
@@ -315,9 +307,6 @@ GPUVertFormat *DRW_shgroup_instance_format_array(const DRWInstanceAttrFormat att
 DRWShadingGroup *DRW_shgroup_create(GPUShader *shader, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_create_sub(DRWShadingGroup *shgroup);
 DRWShadingGroup *DRW_shgroup_material_create(GPUMaterial *material, DRWPass *pass);
-DRWShadingGroup *DRW_shgroup_transform_feedback_create(GPUShader *shader,
-                                                       DRWPass *pass,
-                                                       blender::gpu::VertBuf *tf_target);
 
 void DRW_shgroup_add_material_resources(DRWShadingGroup *grp, GPUMaterial *material);
 
@@ -339,12 +328,6 @@ void DRW_shgroup_call_ex(DRWShadingGroup *shgroup,
 #define DRW_shgroup_call(shgroup, geom, ob) \
   DRW_shgroup_call_ex(shgroup, ob, nullptr, geom, false, nullptr)
 
-/**
- * Same as #DRW_shgroup_call but override the `obmat`. Not culled.
- */
-#define DRW_shgroup_call_obmat(shgroup, geom, obmat) \
-  DRW_shgroup_call_ex(shgroup, nullptr, obmat, geom, false, nullptr)
-
 /* TODO(fclem): remove this when we have #DRWView */
 /* user_data is used by #DRWCallVisibilityFn defined in #DRWView. */
 #define DRW_shgroup_call_with_callback(shgroup, geom, ob, user_data) \
@@ -356,33 +339,10 @@ void DRW_shgroup_call_ex(DRWShadingGroup *shgroup,
 #define DRW_shgroup_call_no_cull(shgroup, geom, ob) \
   DRW_shgroup_call_ex(shgroup, ob, nullptr, geom, true, nullptr)
 
-void DRW_shgroup_call_range(
-    DRWShadingGroup *shgroup, const Object *ob, blender::gpu::Batch *geom, uint v_sta, uint v_num);
-/**
- * A count of 0 instance will use the default number of instance in the batch.
- */
-void DRW_shgroup_call_instance_range(
-    DRWShadingGroup *shgroup, const Object *ob, blender::gpu::Batch *geom, uint i_sta, uint i_num);
-
-void DRW_shgroup_call_compute(DRWShadingGroup *shgroup,
-                              int groups_x_len,
-                              int groups_y_len,
-                              int groups_z_len);
-/**
- * \warning this keeps the ref to groups_ref until it actually dispatch.
- */
-void DRW_shgroup_call_compute_ref(DRWShadingGroup *shgroup, int groups_ref[3]);
 /**
  * \note No need for a barrier. \a indirect_buf is internally synchronized.
  */
-void DRW_shgroup_call_compute_indirect(DRWShadingGroup *shgroup, GPUStorageBuf *indirect_buf);
-void DRW_shgroup_call_procedural_points(DRWShadingGroup *sh, const Object *ob, uint point_count);
-void DRW_shgroup_call_procedural_lines(DRWShadingGroup *sh, const Object *ob, uint line_count);
 void DRW_shgroup_call_procedural_triangles(DRWShadingGroup *sh, const Object *ob, uint tri_count);
-void DRW_shgroup_call_procedural_indirect(DRWShadingGroup *shgroup,
-                                          GPUPrimType primitive_type,
-                                          Object *ob,
-                                          GPUStorageBuf *indirect_buf);
 /**
  * \warning Only use with Shaders that have `IN_PLACE_INSTANCES` defined.
  * TODO: Should be removed.
@@ -391,35 +351,16 @@ void DRW_shgroup_call_instances(DRWShadingGroup *shgroup,
                                 const Object *ob,
                                 blender::gpu::Batch *geom,
                                 uint count);
-/**
- * \warning Only use with Shaders that have INSTANCED_ATTR defined.
- */
-void DRW_shgroup_call_instances_with_attrs(DRWShadingGroup *shgroup,
-                                           const Object *ob,
-                                           blender::gpu::Batch *geom,
-                                           blender::gpu::Batch *inst_attributes);
-
-void DRW_shgroup_call_sculpt(DRWShadingGroup *shgroup,
-                             Object *ob,
-                             bool use_wire,
-                             bool use_mask,
-                             bool use_fset,
-                             bool use_color,
-                             bool use_uv);
 
 void DRW_shgroup_call_sculpt_with_materials(DRWShadingGroup **shgroups,
                                             GPUMaterial **gpumats,
                                             int num_shgroups,
                                             const Object *ob);
 
-DRWCallBuffer *DRW_shgroup_call_buffer(DRWShadingGroup *shgroup,
-                                       GPUVertFormat *format,
-                                       GPUPrimType prim_type);
 DRWCallBuffer *DRW_shgroup_call_buffer_instance(DRWShadingGroup *shgroup,
                                                 GPUVertFormat *format,
                                                 blender::gpu::Batch *geom);
 
-void DRW_buffer_add_entry_struct(DRWCallBuffer *callbuf, const void *data);
 void DRW_buffer_add_entry_array(DRWCallBuffer *callbuf, const void *attr[], uint attr_len);
 
 #define DRW_buffer_add_entry(buffer, ...) \
@@ -429,11 +370,6 @@ void DRW_buffer_add_entry_array(DRWCallBuffer *callbuf, const void *attr[], uint
   } while (0)
 
 /**
- * Can only be called during iteration phase.
- */
-uint32_t DRW_object_resource_id_get(Object *ob);
-
-/**
  * State is added to #Pass.state while drawing.
  * Use to temporarily enable draw options.
  */
@@ -441,36 +377,9 @@ void DRW_shgroup_state_enable(DRWShadingGroup *shgroup, DRWState state);
 void DRW_shgroup_state_disable(DRWShadingGroup *shgroup, DRWState state);
 
 /**
- * Reminders:
- * - (compare_mask & reference) is what is tested against (compare_mask & stencil_value)
- *   stencil_value being the value stored in the stencil buffer.
- * - (write-mask & reference) is what gets written if the test condition is fulfilled.
- */
-void DRW_shgroup_stencil_set(DRWShadingGroup *shgroup,
-                             uint write_mask,
-                             uint reference,
-                             uint compare_mask);
-/**
  * TODO: remove this function. Obsolete version. mask is actually reference value.
  */
 void DRW_shgroup_stencil_mask(DRWShadingGroup *shgroup, uint mask);
-
-/**
- * Issue a barrier command.
- */
-void DRW_shgroup_barrier(DRWShadingGroup *shgroup, eGPUBarrier type);
-
-/**
- * Issue a clear command.
- */
-void DRW_shgroup_clear_framebuffer(DRWShadingGroup *shgroup,
-                                   eGPUFrameBufferBits channels,
-                                   uchar r,
-                                   uchar g,
-                                   uchar b,
-                                   uchar a,
-                                   float depth,
-                                   uchar stencil);
 
 void DRW_shgroup_uniform_texture_ex(DRWShadingGroup *shgroup,
                                     const char *name,
@@ -607,18 +516,11 @@ DRWPass *DRW_pass_create_instance(const char *name, DRWPass *original, DRWState 
  * Link two passes so that they are both rendered if the first one is being drawn.
  */
 void DRW_pass_link(DRWPass *first, DRWPass *second);
-void DRW_pass_foreach_shgroup(DRWPass *pass,
-                              void (*callback)(void *user_data, DRWShadingGroup *shgroup),
-                              void *user_data);
 /**
  * Sort Shading groups by decreasing Z of their first draw call.
  * This is useful for order dependent effect such as alpha-blending.
  */
 void DRW_pass_sort_shgroup_z(DRWPass *pass);
-/**
- * Reverse Shading group submission order.
- */
-void DRW_pass_sort_shgroup_reverse(DRWPass *pass);
 
 bool DRW_pass_is_empty(DRWPass *pass);
 
@@ -672,7 +574,6 @@ void DRW_view_reset();
  * Set active view for rendering.
  */
 void DRW_view_set_active(const DRWView *view);
-const DRWView *DRW_view_get_active();
 
 /**
  * This only works if DRWPasses have been tagged with DRW_STATE_CLIP_PLANES,
@@ -687,10 +588,6 @@ void DRW_view_winmat_get(const DRWView *view, float mat[4][4], bool inverse);
 void DRW_view_viewmat_get(const DRWView *view, float mat[4][4], bool inverse);
 void DRW_view_persmat_get(const DRWView *view, float mat[4][4], bool inverse);
 
-/**
- * \return world space frustum corners.
- */
-void DRW_view_frustum_corners_get(const DRWView *view, BoundBox *corners);
 /**
  * \return world space frustum sides as planes.
  * See #draw_frustum_culling_planes_calc() for the plane order.
@@ -829,13 +726,6 @@ void DRW_draw_callbacks_post_scene();
  */
 void DRW_state_reset_ex(DRWState state);
 void DRW_state_reset();
-/**
- * Use with care, intended so selection code can override passes depth settings,
- * which is important for selection to work properly.
- *
- * Should be set in main draw loop, cleared afterwards
- */
-void DRW_state_lock(DRWState state);
 
 /* Selection. */
 

@@ -4,8 +4,8 @@
 
 /* Empty GLSL source to satisfy the GPUShaderCreateInfo requirements. */
 /* Needed includes for shader nodes. */
-#pragma BLENDER_REQUIRE(closure_type_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_view_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_attribute_lib.glsl)
-#pragma BLENDER_REQUIRE(closure_eval_volume_lib.glsl)
+#include "closure_type_lib.glsl"
+#include "goo_common_view_lib.glsl"
+#include "common_math_lib.glsl"
+#include "common_attribute_lib.glsl"
+#include "closure_eval_volume_lib.glsl"

@@ -21,20 +21,17 @@
 void EEVEE_mist_output_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
   const DRWContextState *draw_ctx = DRW_context_state_get();
-  EEVEE_FramebufferList *fbl = vedata->fbl;
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
-  EEVEE_TextureList *txl = vedata->txl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_PrivateData *g_data = stl->g_data;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_PrivateData *g_data = inst->g_data;
   Scene *scene = draw_ctx->scene;
 
   /* Create FrameBuffer. */
   /* Should be enough precision for many samples. */
-  DRW_texture_ensure_fullscreen_2d(&txl->mist_accum, GPU_R32F, DRWTextureFlag(0));
+  DRW_texture_ensure_fullscreen_2d(&inst->mist_accum, GPU_R32F, DRWTextureFlag(0));
 
-  GPU_framebuffer_ensure_config(&fbl->mist_accum_fb,
-                                {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(txl->mist_accum)});
+  GPU_framebuffer_ensure_config(&inst->mist_accum_fb,
+                                {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(inst->mist_accum)});
 
   /* Mist settings. */
   if (scene && scene->world) {
@@ -66,9 +63,9 @@ void EEVEE_mist_output_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
   g_data->mist_falloff *= 0.5f;
 
   /* Create Pass and shgroup. */
-  DRW_PASS_CREATE(psl->mist_accum_ps, DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ADD);
+  DRW_PASS_CREATE(inst->mist_accum_ps, DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ADD);
   DRWShadingGroup *grp = DRW_shgroup_create(EEVEE_shaders_effect_mist_sh_get(),
-                                            psl->mist_accum_ps);
+                                            inst->mist_accum_ps);
   DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", &dtxl->depth);
   DRW_shgroup_uniform_block(grp, "common_block", sldata->common_ubo);
   DRW_shgroup_uniform_block(grp, "renderpass_block", sldata->renderpass_ubo.combined);
@@ -78,22 +75,21 @@ void EEVEE_mist_output_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 
 void EEVEE_mist_output_accumulate(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_EffectsInfo *effects = vedata->stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
-  if (fbl->mist_accum_fb != nullptr) {
-    GPU_framebuffer_bind(fbl->mist_accum_fb);
+  if (inst->mist_accum_fb != nullptr) {
+    GPU_framebuffer_bind(inst->mist_accum_fb);
 
     /* Clear texture. */
     if (effects->taa_current_sample == 1) {
       const float clear[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-      GPU_framebuffer_clear_color(fbl->mist_accum_fb, clear);
+      GPU_framebuffer_clear_color(inst->mist_accum_fb, clear);
     }
 
-    DRW_draw_pass(psl->mist_accum_ps);
+    DRW_draw_pass(inst->mist_accum_ps);
 
     /* Restore */
-    GPU_framebuffer_bind(fbl->main_fb);
+    GPU_framebuffer_bind(inst->main_fb);
   }
 }

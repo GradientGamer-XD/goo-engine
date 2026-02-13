@@ -2,8 +2,8 @@
 // Based on: https://github.com/aras-p/oklab_gradient_test
 // OKLab color space provides perceptually uniform color interpolation
 
-#pragma BLENDER_REQUIRE(gpu_shader_common_math_utils.glsl)
-#pragma BLENDER_REQUIRE(gpu_shader_common_color_ramp.glsl)
+#include "gpu_shader_common_math_utils.glsl"
+#include "gpu_shader_common_color_ramp.glsl"
 
 // OKLab color space conversion functions
 // These functions convert between Linear sRGB and OKLab color space

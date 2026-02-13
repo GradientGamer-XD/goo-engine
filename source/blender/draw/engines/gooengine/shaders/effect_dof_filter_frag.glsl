@@ -9,7 +9,7 @@
  * cheaper.
  */
 
-#pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
+#include "effect_dof_lib.glsl"
 
 /* From:
  * Implementing Median Filters in XC4000E FPGAs

@@ -1,5 +1,5 @@
-#pragma BLENDER_REQUIRE(gpu_shader_common_hash.glsl)
-#pragma BLENDER_REQUIRE(gpu_shader_common_math_utils.glsl)
+#include "gpu_shader_common_hash.glsl"
+#include "gpu_shader_common_math_utils.glsl"
 
 #define HRATIO 1.1547005
 #define HSQRT3 1.7320508

@@ -2,8 +2,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-#pragma BLENDER_REQUIRE(bsdf_sampling_lib.glsl)
+#include "common_utiltex_lib.glsl"
+#include "bsdf_sampling_lib.glsl"
 
 /* Generate BRDF LUT following "Real shading in unreal engine 4" by Brian Karis
  * https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf

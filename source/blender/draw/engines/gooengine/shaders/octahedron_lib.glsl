@@ -2,6 +2,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#pragma once
+
 vec2 mapping_octahedron(vec3 cubevec, vec2 texel_size)
 {
   /* projection onto octahedron */

@@ -12,8 +12,8 @@
  * rotation to ensure maximum coverage.
  */
 
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-#pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
+#include "common_utiltex_lib.glsl"
+#include "effect_dof_lib.glsl"
 
 #ifdef DOF_HOLEFILL_PASS
 /* Dirty global variable that isn't used. So it should get optimized out. */

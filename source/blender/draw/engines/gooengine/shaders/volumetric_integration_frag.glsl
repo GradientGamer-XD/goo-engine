@@ -8,7 +8,7 @@
 /* Step 3 : Integrate for each froxel the final amount of light
  * scattered back to the viewer and the amount of transmittance. */
 
-#pragma BLENDER_REQUIRE(volumetric_lib.glsl)
+#include "volumetric_lib.glsl"
 
 /* Globals when using OPTI */
 #ifdef USE_VOLUME_OPTI

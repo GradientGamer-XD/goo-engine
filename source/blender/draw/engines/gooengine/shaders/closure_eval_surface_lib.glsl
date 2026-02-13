@@ -2,11 +2,13 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(closure_eval_diffuse_lib.glsl)
-#pragma BLENDER_REQUIRE(closure_eval_glossy_lib.glsl)
-#pragma BLENDER_REQUIRE(closure_eval_refraction_lib.glsl)
-#pragma BLENDER_REQUIRE(closure_eval_translucent_lib.glsl)
-#pragma BLENDER_REQUIRE(renderpass_lib.glsl)
+#pragma once
+
+#include "closure_eval_diffuse_lib.glsl"
+#include "closure_eval_glossy_lib.glsl"
+#include "closure_eval_refraction_lib.glsl"
+#include "closure_eval_translucent_lib.glsl"
+#include "renderpass_lib.glsl"
 
 #if defined(USE_SHADER_TO_RGBA) || defined(USE_ALPHA_BLEND)
 bool do_sss = false;

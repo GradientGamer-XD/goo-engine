@@ -7,11 +7,11 @@
  * The final integration is done at the resolve stage with the shading normal.
  */
 
-#pragma BLENDER_REQUIRE(goo_common_view_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_geom_lib.glsl)
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-#pragma BLENDER_REQUIRE(ambient_occlusion_lib.glsl)
+#include "goo_common_view_lib.glsl"
+#include "common_math_lib.glsl"
+#include "common_math_geom_lib.glsl"
+#include "common_utiltex_lib.glsl"
+#include "ambient_occlusion_lib.glsl"
 
 /* Similar to https://atyuwen.github.io/posts/normal-reconstruction/.
  * This samples the depth buffer 4 time for each direction to get the most correct

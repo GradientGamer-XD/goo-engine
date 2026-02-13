@@ -12,7 +12,9 @@
  * https://media.contentapi.ea.com/content/dam/ea/seed/presentations/dd18-seed-raytracing-in-hybrid-real-time-rendering.pdf
  */
 
-#pragma BLENDER_REQUIRE(goo_common_view_lib.glsl)
+#pragma once
+
+#include "goo_common_view_lib.glsl"
 
 struct HitData {
   /** Hit direction scaled by intersection time. */

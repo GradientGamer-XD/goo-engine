@@ -186,8 +186,8 @@ void EEVEE_temporal_sampling_matrices_calc(EEVEE_EffectsInfo *effects, const dou
 
 void EEVEE_temporal_sampling_update_matrices(EEVEE_Data *vedata)
 {
-  EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
   double ht_point[2];
   double ht_offset[2] = {0.0, 0.0};
@@ -202,13 +202,15 @@ void EEVEE_temporal_sampling_update_matrices(EEVEE_Data *vedata)
 
 void EEVEE_temporal_sampling_reset(EEVEE_Data *vedata)
 {
-  vedata->stl->effects->taa_render_sample = 1;
-  vedata->stl->effects->taa_current_sample = 1;
+  GOOENGINE_Instance *inst = vedata->instance;
+  inst->effects->taa_render_sample = 1;
+  inst->effects->taa_current_sample = 1;
 }
 
 void EEVEE_temporal_sampling_create_view(EEVEE_Data *vedata)
 {
-  EEVEE_EffectsInfo *effects = vedata->stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
   /* Create a sub view to disable clipping planes (if any). */
   const DRWView *default_view = DRW_view_default_get();
   float viewmat[4][4], winmat[4][4];
@@ -218,7 +220,7 @@ void EEVEE_temporal_sampling_create_view(EEVEE_Data *vedata)
   DRW_view_clip_planes_set(effects->taa_view, nullptr, 0);
 }
 
-int EEVEE_temporal_sampling_sample_count_get(const Scene *scene, const EEVEE_StorageList *stl)
+int EEVEE_temporal_sampling_sample_count_get(const Scene *scene, const GOOENGINE_Instance *inst)
 {
   const bool is_render = DRW_state_is_image_render();
   const DRWContextState *draw_ctx = DRW_context_state_get();
@@ -232,22 +234,22 @@ int EEVEE_temporal_sampling_sample_count_get(const Scene *scene, const EEVEE_Sto
 
   int sample_count = is_render ? render_samples : scene->eevee.taa_samples;
 
-  int timesteps = is_render ? stl->g_data->render_timesteps : 1;
+  int timesteps = is_render ? inst->g_data->render_timesteps : 1;
 
   sample_count = max_ii(0, sample_count);
   sample_count = (sample_count == 0) ? TAA_MAX_SAMPLE : sample_count;
   sample_count = divide_ceil_u(sample_count, timesteps);
 
   int dof_sample_count = EEVEE_depth_of_field_sample_count_get(
-      stl->effects, sample_count, nullptr);
+      inst->effects, sample_count, nullptr);
   sample_count = dof_sample_count * divide_ceil_u(sample_count, dof_sample_count);
   return sample_count;
 }
 
 int EEVEE_temporal_sampling_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
   int repro_flag = 0;
 
   if (!e_data.inited) {
@@ -279,16 +281,16 @@ int EEVEE_temporal_sampling_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *v
 
     /* Until we support reprojection, we need to make sure
      * that the history buffer contains correct information. */
-    bool view_is_valid = stl->g_data->valid_double_buffer;
+    bool view_is_valid = inst->g_data->valid_double_buffer;
 
-    view_is_valid = view_is_valid && (stl->g_data->view_updated == false);
+    view_is_valid = view_is_valid && (inst->g_data->view_updated == false);
 
     if (draw_ctx->evil_C != nullptr) {
       wmWindowManager *wm = CTX_wm_manager(draw_ctx->evil_C);
       view_is_valid = view_is_valid && (ED_screen_animation_no_scrub(wm) == nullptr);
     }
 
-    effects->taa_total_sample = EEVEE_temporal_sampling_sample_count_get(scene_eval, stl);
+    effects->taa_total_sample = EEVEE_temporal_sampling_sample_count_get(scene_eval, inst);
 
     if (EEVEE_renderpasses_only_first_sample_pass_active(vedata)) {
       view_is_valid = false;
@@ -323,7 +325,7 @@ int EEVEE_temporal_sampling_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *v
       }
     }
     else {
-      const bool all_shaders_compiled = stl->g_data->queued_shaders_count_prev == 0;
+      const bool all_shaders_compiled = inst->g_data->queued_shaders_count_prev == 0;
       /* Fix Texture painting (see #79370) and shader compilation (see #78520). */
       if (DRW_state_is_navigating() || !all_shaders_compiled) {
         effects->taa_current_sample = 1;
@@ -344,18 +346,16 @@ int EEVEE_temporal_sampling_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *v
 
 void EEVEE_temporal_sampling_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_TextureList *txl = vedata->txl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
   if (effects->enabled_effects & EFFECT_TAA) {
     GPUShader *sh = EEVEE_shaders_taa_resolve_sh_get(effects->enabled_effects);
 
-    DRW_PASS_CREATE(psl->taa_resolve, DRW_STATE_WRITE_COLOR);
-    DRWShadingGroup *grp = DRW_shgroup_create(sh, psl->taa_resolve);
+    DRW_PASS_CREATE(inst->taa_resolve, DRW_STATE_WRITE_COLOR);
+    DRWShadingGroup *grp = DRW_shgroup_create(sh, inst->taa_resolve);
 
-    DRW_shgroup_uniform_texture_ref(grp, "colorHistoryBuffer", &txl->taa_history);
+    DRW_shgroup_uniform_texture_ref(grp, "colorHistoryBuffer", &inst->taa_history);
     DRW_shgroup_uniform_texture_ref(grp, "colorBuffer", &effects->source_buffer);
     DRW_shgroup_uniform_block(grp, "common_block", sldata->common_ubo);
     DRW_shgroup_uniform_block(grp, "renderpass_block", sldata->renderpass_ubo.combined);
@@ -374,11 +374,8 @@ void EEVEE_temporal_sampling_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data 
 
 void EEVEE_temporal_sampling_draw(EEVEE_Data *vedata)
 {
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_TextureList *txl = vedata->txl;
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
   if ((effects->enabled_effects & (EFFECT_TAA | EFFECT_TAA_REPROJECT)) != 0) {
     if ((effects->enabled_effects & EFFECT_TAA) != 0 && effects->taa_current_sample != 1) {
@@ -391,10 +388,10 @@ void EEVEE_temporal_sampling_draw(EEVEE_Data *vedata)
       }
 
       GPU_framebuffer_bind(effects->target_buffer);
-      DRW_draw_pass(psl->taa_resolve);
+      DRW_draw_pass(inst->taa_resolve);
 
       /* Restore the depth from sample 1. */
-      GPU_framebuffer_blit(fbl->double_buffer_depth_fb, 0, fbl->main_fb, 0, GPU_DEPTH_BIT);
+      GPU_framebuffer_blit(inst->double_buffer_depth_fb, 0, inst->main_fb, 0, GPU_DEPTH_BIT);
 
       SWAP_BUFFERS_TAA();
     }
@@ -402,22 +399,22 @@ void EEVEE_temporal_sampling_draw(EEVEE_Data *vedata)
       /* Save the depth buffer for the next frame.
        * This saves us from doing anything special
        * in the other mode engines. */
-      GPU_framebuffer_blit(fbl->main_fb, 0, fbl->double_buffer_depth_fb, 0, GPU_DEPTH_BIT);
+      GPU_framebuffer_blit(inst->main_fb, 0, inst->double_buffer_depth_fb, 0, GPU_DEPTH_BIT);
 
       /* Do reprojection for noise reduction */
       /* TODO: do AA jitter if in only render view. */
       if (!DRW_state_is_image_render() && (effects->enabled_effects & EFFECT_TAA_REPROJECT) != 0 &&
-          stl->g_data->valid_taa_history)
+          inst->g_data->valid_taa_history)
       {
         GPU_framebuffer_bind(effects->target_buffer);
-        DRW_draw_pass(psl->taa_resolve);
+        DRW_draw_pass(inst->taa_resolve);
         SWAP_BUFFERS_TAA();
       }
       else {
-        GPUFrameBuffer *source_fb = (effects->target_buffer == fbl->main_color_fb) ?
-                                        fbl->effect_color_fb :
-                                        fbl->main_color_fb;
-        GPU_framebuffer_blit(source_fb, 0, fbl->taa_history_color_fb, 0, GPU_COLOR_BIT);
+        GPUFrameBuffer *source_fb = (effects->target_buffer == inst->main_color_fb) ?
+                                        inst->effect_color_fb :
+                                        inst->main_color_fb;
+        GPU_framebuffer_blit(source_fb, 0, inst->taa_history_color_fb, 0, GPU_COLOR_BIT);
       }
     }
 

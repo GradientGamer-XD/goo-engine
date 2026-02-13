@@ -136,6 +136,7 @@ uint ceil_to_multiple(uint a, uint b)
   return ((a + b - 1u) / b) * b;
 }
 
+#ifndef COMMON_MATH_LIB_GLSL
 /**
  * Integer division that returns the ceiling, instead of flooring like normal C division.
  * It is undefined if \a a is negative or \b b is not strictly positive.
@@ -148,6 +149,7 @@ uint divide_ceil(uint a, uint b)
 {
   return (a + b - 1u) / b;
 }
+#endif
 
 /**
  * Component wise, use vector to replace min if it is smaller and max if bigger.
@@ -158,7 +160,7 @@ void min_max(float value, inout float min_v, inout float max_v)
   max_v = max(value, max_v);
 }
 
-#ifndef GOO_COMMON_MATH_LIB_GLSL
+#ifndef COMMON_MATH_LIB_GLSL
 /**
  * Safe divide `a` by `b`.
  * If `b` equal 0 the result will be 0.

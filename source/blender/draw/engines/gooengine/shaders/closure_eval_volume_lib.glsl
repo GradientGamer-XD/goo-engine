@@ -2,6 +2,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#pragma once
+
 void output_aov(vec4 color, float value, uint hash)
 {
   /* Unsupported. */

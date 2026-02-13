@@ -2,9 +2,11 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(lights_lib.glsl)
-#pragma BLENDER_REQUIRE(lightprobe_lib.glsl)
-#pragma BLENDER_REQUIRE(irradiance_lib.glsl)
+#pragma once
+
+#include "lights_lib.glsl"
+#include "lightprobe_lib.glsl"
+#include "irradiance_lib.glsl"
 
 /* Based on Frosbite Unified Volumetric.
  * https://www.ea.com/frostbite/news/physically-based-unified-volumetric-rendering-in-frostbite */

@@ -2,10 +2,12 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(goo_common_math_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_geom_lib.glsl)
-#pragma BLENDER_REQUIRE(raytrace_lib.glsl)
-#pragma BLENDER_REQUIRE(surface_lib.glsl)
+#pragma once
+
+#include "common_math_lib.glsl"
+#include "common_math_geom_lib.glsl"
+#include "raytrace_lib.glsl"
+#include "surface_lib.glsl"
 
 /* Based on Practical Realtime Strategies for Accurate Indirect Occlusion
  * http://blog.selfshadow.com/publications/s2016-shading-course/activision/s2016_pbs_activision_occlusion.pdf

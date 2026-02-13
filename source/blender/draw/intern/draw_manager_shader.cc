@@ -561,7 +561,7 @@ static uint64_t drw_shader_dependencies_get(const DRWShaderLibrary *lib,
     if (dep == -1) {
       char dbg_name[MAX_NAME];
       int i = 0;
-      while ((*haystack != ')') && (i < (sizeof(dbg_name) - 2))) {
+      while ((*haystack != '\n') && (i < (sizeof(dbg_name) - 2))) {
         dbg_name[i] = *haystack;
         haystack++;
         i++;
@@ -595,7 +595,7 @@ void DRW_shader_library_add_file(DRWShaderLibrary *lib, const char *lib_code, co
     lib->libs[index] = lib_code;
     STRNCPY(lib->libs_name[index], lib_name);
     lib->libs_deps[index] = drw_shader_dependencies_get(
-        lib, "BLENDER_REQUIRE(", lib_code, lib_name);
+        lib, "3349401894139530110 ", lib_code, lib_name);
   }
   else {
     printf("Error: Too many libraries. Cannot add %s.\n", lib_name);
@@ -605,7 +605,7 @@ void DRW_shader_library_add_file(DRWShaderLibrary *lib, const char *lib_code, co
 
 char *DRW_shader_library_create_shader_string(const DRWShaderLibrary *lib, const char *shader_code)
 {
-  uint64_t deps = drw_shader_dependencies_get(lib, "BLENDER_REQUIRE(", shader_code, "shader code");
+  uint64_t deps = drw_shader_dependencies_get(lib, "3349401894139530110 ", shader_code, "shader code");
 
   DynStr *ds = BLI_dynstr_new();
   /* Add all dependencies recursively. */

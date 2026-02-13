@@ -1,5 +1,5 @@
-#pragma BLENDER_REQUIRE(gpu_shader_material_sdf_util.glsl)
-#pragma BLENDER_REQUIRE(gpu_shader_common_hash.glsl)
+#include "gpu_shader_material_sdf_util.glsl"
+#include "gpu_shader_common_hash.glsl"
 
 /**
  * SDF Functions based on these sources, inc comments:

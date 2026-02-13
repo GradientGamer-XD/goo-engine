@@ -3,16 +3,16 @@
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
 /* Required by some nodes. */
-#pragma BLENDER_REQUIRE(goo_common_hair_lib.glsl)
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_geom_lib.glsl)
+#include "common_hair_lib.glsl"
+#include "common_utiltex_lib.glsl"
+#include "common_math_lib.glsl"
+#include "common_math_geom_lib.glsl"
 
-#pragma BLENDER_REQUIRE(closure_eval_surface_lib.glsl)
+#include "closure_eval_surface_lib.glsl"
 
-#pragma BLENDER_REQUIRE(surface_lib.glsl)
-#pragma BLENDER_REQUIRE(volumetric_lib.glsl)
-#pragma BLENDER_REQUIRE(renderpass_lib.glsl)
+#include "surface_lib.glsl"
+#include "volumetric_lib.glsl"
+#include "renderpass_lib.glsl"
 
 #ifdef EEVEE_DISPLACEMENT_BUMP
 

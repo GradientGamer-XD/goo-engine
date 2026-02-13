@@ -39,9 +39,8 @@
 
 int EEVEE_motion_blur_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
   const DRWContextState *draw_ctx = DRW_context_state_get();
   Scene *scene = draw_ctx->scene;
@@ -69,7 +68,7 @@ int EEVEE_motion_blur_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
     eGPUTextureUsage usage = GPU_TEXTURE_USAGE_SHADER_READ | GPU_TEXTURE_USAGE_ATTACHMENT;
     effects->velocity_tiles_x_tx = DRW_texture_pool_query_2d_ex(
         tx_size[0], fs_size[1], GPU_RGBA16, usage, &draw_engine_eevee_type);
-    GPU_framebuffer_ensure_config(&fbl->velocity_tiles_fb[0],
+    GPU_framebuffer_ensure_config(&inst->velocity_tiles_fb[0],
                                   {
                                       GPU_ATTACHMENT_NONE,
                                       GPU_ATTACHMENT_TEXTURE(effects->velocity_tiles_x_tx),
@@ -77,7 +76,7 @@ int EEVEE_motion_blur_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 
     effects->velocity_tiles_tx = DRW_texture_pool_query_2d_ex(
         tx_size[0], tx_size[1], GPU_RGBA16, usage, &draw_engine_eevee_type);
-    GPU_framebuffer_ensure_config(&fbl->velocity_tiles_fb[1],
+    GPU_framebuffer_ensure_config(&inst->velocity_tiles_fb[1],
                                   {
                                       GPU_ATTACHMENT_NONE,
                                       GPU_ATTACHMENT_TEXTURE(effects->velocity_tiles_tx),
@@ -90,13 +89,15 @@ int EEVEE_motion_blur_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 
 void EEVEE_motion_blur_step_set(EEVEE_Data *vedata, int step)
 {
+  GOOENGINE_Instance *inst = vedata->instance;
   BLI_assert(step < 3);
-  vedata->stl->effects->motion_blur_step = step;
+  inst->effects->motion_blur_step = step;
 }
 
 static void eevee_motion_blur_sync_camera(EEVEE_Data *vedata)
 {
-  EEVEE_EffectsInfo *effects = vedata->stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
   if (DRW_state_is_scene_render()) {
     int mb_step = effects->motion_blur_step;
     DRW_view_viewmat_get(nullptr, effects->motion_blur.camera[mb_step].viewmat, false);
@@ -110,9 +111,8 @@ static void eevee_motion_blur_sync_camera(EEVEE_Data *vedata)
 
 void EEVEE_motion_blur_cache_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
   EEVEE_MotionBlurData *mb_data = &effects->motion_blur;
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
   const DRWContextState *draw_ctx = DRW_context_state_get();
@@ -129,12 +129,12 @@ void EEVEE_motion_blur_cache_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *
 
     DRWShadingGroup *grp;
     {
-      DRW_PASS_CREATE(psl->velocity_tiles_x, DRW_STATE_WRITE_COLOR);
-      DRW_PASS_CREATE(psl->velocity_tiles, DRW_STATE_WRITE_COLOR);
+      DRW_PASS_CREATE(inst->velocity_tiles_x, DRW_STATE_WRITE_COLOR);
+      DRW_PASS_CREATE(inst->velocity_tiles, DRW_STATE_WRITE_COLOR);
 
       /* Create max velocity tiles in 2 passes. One for X and one for Y */
       GPUShader *sh = EEVEE_shaders_effect_motion_blur_velocity_tiles_sh_get();
-      grp = DRW_shgroup_create(sh, psl->velocity_tiles_x);
+      grp = DRW_shgroup_create(sh, inst->velocity_tiles_x);
       DRW_shgroup_uniform_texture(grp, "velocityBuffer", effects->velocity_tx);
       DRW_shgroup_uniform_ivec2_copy(
           grp, "velocityBufferSize", blender::int2{int(fs_size[0]), int(fs_size[1])});
@@ -143,7 +143,7 @@ void EEVEE_motion_blur_cache_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *
       DRW_shgroup_uniform_ivec2_copy(grp, "gatherStep", blender::int2{1, 0});
       DRW_shgroup_call_procedural_triangles(grp, nullptr, 1);
 
-      grp = DRW_shgroup_create(sh, psl->velocity_tiles);
+      grp = DRW_shgroup_create(sh, inst->velocity_tiles);
       DRW_shgroup_uniform_texture(grp, "velocityBuffer", effects->velocity_tiles_x_tx);
       DRW_shgroup_uniform_ivec2_copy(
           grp, "velocityBufferSize", blender::int2{tx_size[0], int(fs_size[1])});
@@ -151,12 +151,12 @@ void EEVEE_motion_blur_cache_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *
       DRW_shgroup_call_procedural_triangles(grp, nullptr, 1);
 
       /* Expand max tiles by keeping the max tile in each tile neighborhood. */
-      DRW_PASS_CREATE(psl->velocity_tiles_expand[0], DRW_STATE_WRITE_COLOR);
-      DRW_PASS_CREATE(psl->velocity_tiles_expand[1], DRW_STATE_WRITE_COLOR);
+      DRW_PASS_CREATE(inst->velocity_tiles_expand[0], DRW_STATE_WRITE_COLOR);
+      DRW_PASS_CREATE(inst->velocity_tiles_expand[1], DRW_STATE_WRITE_COLOR);
       for (int i = 0; i < 2; i++) {
         GPUTexture *tile_tx = (i == 0) ? effects->velocity_tiles_tx : effects->velocity_tiles_x_tx;
         GPUShader *sh_expand = EEVEE_shaders_effect_motion_blur_velocity_tiles_expand_sh_get();
-        grp = DRW_shgroup_create(sh_expand, psl->velocity_tiles_expand[i]);
+        grp = DRW_shgroup_create(sh_expand, inst->velocity_tiles_expand[i]);
         DRW_shgroup_uniform_ivec2_copy(grp, "velocityBufferSize", tx_size);
         DRW_shgroup_uniform_texture(grp, "velocityBuffer", tile_tx);
         DRW_shgroup_uniform_vec2(grp, "viewportSize", DRW_viewport_size_get(), 1);
@@ -165,13 +165,13 @@ void EEVEE_motion_blur_cache_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *
       }
     }
     {
-      DRW_PASS_CREATE(psl->motion_blur, DRW_STATE_WRITE_COLOR);
+      DRW_PASS_CREATE(inst->motion_blur, DRW_STATE_WRITE_COLOR);
       const GPUSamplerState state = GPUSamplerState::default_sampler();
       int expand_steps = 1 + (max_ii(0, effects->motion_blur_max - 1) / EEVEE_VELOCITY_TILE_SIZE);
       GPUTexture *tile_tx = (expand_steps & 1) ? effects->velocity_tiles_x_tx :
                                                  effects->velocity_tiles_tx;
 
-      grp = DRW_shgroup_create(EEVEE_shaders_effect_motion_blur_sh_get(), psl->motion_blur);
+      grp = DRW_shgroup_create(EEVEE_shaders_effect_motion_blur_sh_get(), inst->motion_blur);
       DRW_shgroup_uniform_texture(grp, "utilTex", EEVEE_materials_get_util_tex());
       DRW_shgroup_uniform_texture_ref_ex(grp, "colorBuffer", &effects->source_buffer, state);
       DRW_shgroup_uniform_texture_ref_ex(grp, "depthBuffer", &dtxl->depth, state);
@@ -186,31 +186,31 @@ void EEVEE_motion_blur_cache_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *
       DRW_shgroup_call_procedural_triangles(grp, nullptr, 1);
     }
     {
-      DRW_PASS_CREATE(psl->velocity_object, DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL);
+      DRW_PASS_CREATE(inst->velocity_object, DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL);
 
       grp = DRW_shgroup_create(EEVEE_shaders_effect_motion_blur_object_sh_get(),
-                               psl->velocity_object);
+                               inst->velocity_object);
       DRW_shgroup_uniform_mat4(grp, "prevViewProjMatrix", mb_data->camera[MB_PREV].persmat);
       DRW_shgroup_uniform_mat4(grp, "currViewProjMatrix", mb_data->camera[MB_CURR].persmat);
       DRW_shgroup_uniform_mat4(grp, "nextViewProjMatrix", mb_data->camera[MB_NEXT].persmat);
 
-      DRW_PASS_CREATE(psl->velocity_hair, DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL);
+      DRW_PASS_CREATE(inst->velocity_hair, DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL);
 
       mb_data->hair_grp = grp = DRW_shgroup_create(EEVEE_shaders_effect_motion_blur_hair_sh_get(),
-                                                   psl->velocity_hair);
+                                                   inst->velocity_hair);
       DRW_shgroup_uniform_mat4(grp, "prevViewProjMatrix", mb_data->camera[MB_PREV].persmat);
       DRW_shgroup_uniform_mat4(grp, "currViewProjMatrix", mb_data->camera[MB_CURR].persmat);
       DRW_shgroup_uniform_mat4(grp, "nextViewProjMatrix", mb_data->camera[MB_NEXT].persmat);
 
-      DRW_pass_link(psl->velocity_object, psl->velocity_hair);
+      DRW_pass_link(inst->velocity_object, inst->velocity_hair);
     }
 
     EEVEE_motion_blur_data_init(mb_data);
   }
   else {
-    psl->motion_blur = nullptr;
-    psl->velocity_object = nullptr;
-    psl->velocity_hair = nullptr;
+    inst->motion_blur = nullptr;
+    inst->velocity_object = nullptr;
+    inst->velocity_hair = nullptr;
   }
 }
 
@@ -220,12 +220,11 @@ void EEVEE_motion_blur_hair_cache_populate(EEVEE_ViewLayerData * /*sldata*/,
                                            ParticleSystem *psys,
                                            ModifierData *md)
 {
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
   DRWShadingGroup *grp = nullptr;
 
-  if (!DRW_state_is_scene_render() || psl->velocity_hair == nullptr) {
+  if (!DRW_state_is_scene_render() || inst->velocity_hair == nullptr) {
     return;
   }
 
@@ -280,11 +279,10 @@ void EEVEE_motion_blur_curves_cache_populate(EEVEE_ViewLayerData * /*sldata*/,
                                              Object *ob)
 {
   using namespace blender::draw;
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
-  if (!DRW_state_is_scene_render() || psl->velocity_hair == nullptr) {
+  if (!DRW_state_is_scene_render() || inst->velocity_hair == nullptr) {
     return;
   }
 
@@ -333,12 +331,11 @@ void EEVEE_motion_blur_cache_populate(EEVEE_ViewLayerData * /*sldata*/,
                                       EEVEE_Data *vedata,
                                       Object *ob)
 {
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
   DRWShadingGroup *grp = nullptr;
 
-  if (!DRW_state_is_scene_render() || psl->velocity_object == nullptr) {
+  if (!DRW_state_is_scene_render() || inst->velocity_object == nullptr) {
     return;
   }
 
@@ -400,7 +397,7 @@ void EEVEE_motion_blur_cache_populate(EEVEE_ViewLayerData * /*sldata*/,
       }
 
       grp = DRW_shgroup_create(EEVEE_shaders_effect_motion_blur_object_sh_get(),
-                               psl->velocity_object);
+                               inst->velocity_object);
       DRW_shgroup_uniform_mat4(grp, "prevModelMatrix", mb_data->obmat[MB_PREV]);
       DRW_shgroup_uniform_mat4(grp, "currModelMatrix", mb_data->obmat[MB_CURR]);
       DRW_shgroup_uniform_mat4(grp, "nextModelMatrix", mb_data->obmat[MB_NEXT]);
@@ -436,8 +433,8 @@ static void motion_blur_remove_vbo_reference_from_batch(blender::gpu::Batch *bat
 void EEVEE_motion_blur_cache_finish(EEVEE_Data *vedata)
 {
   using namespace blender::draw;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
   GHashIterator ghi;
 
   if ((effects->enabled_effects & EFFECT_MOTION_BLUR) == 0) {
@@ -452,7 +449,7 @@ void EEVEE_motion_blur_cache_finish(EEVEE_Data *vedata)
 
     /* Need to be called after #DRW_render_instance_buffer_finish() */
     /* Also we weed to have a correct FBO bound for #DRW_curves_update. */
-    GPU_framebuffer_bind(vedata->fbl->main_fb);
+    GPU_framebuffer_bind(inst->main_fb);
 
     DRW_curves_update(*DRW_manager_get());
 
@@ -555,8 +552,8 @@ void EEVEE_motion_blur_cache_finish(EEVEE_Data *vedata)
 
 void EEVEE_motion_blur_swap_data(EEVEE_Data *vedata)
 {
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
   GHashIterator ghi;
 
@@ -631,42 +628,39 @@ void EEVEE_motion_blur_swap_data(EEVEE_Data *vedata)
 
 void EEVEE_motion_blur_draw(EEVEE_Data *vedata)
 {
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_TextureList *txl = vedata->txl;
-  EEVEE_FramebufferList *fbl = vedata->fbl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
+  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_EffectsInfo *effects = inst->effects;
 
   /* Motion Blur */
   if ((effects->enabled_effects & EFFECT_MOTION_BLUR) != 0) {
     /* Create velocity max tiles in 2 passes. One for each dimension. */
-    GPU_framebuffer_bind(fbl->velocity_tiles_fb[0]);
-    DRW_draw_pass(psl->velocity_tiles_x);
+    GPU_framebuffer_bind(inst->velocity_tiles_fb[0]);
+    DRW_draw_pass(inst->velocity_tiles_x);
 
-    GPU_framebuffer_bind(fbl->velocity_tiles_fb[1]);
-    DRW_draw_pass(psl->velocity_tiles);
+    GPU_framebuffer_bind(inst->velocity_tiles_fb[1]);
+    DRW_draw_pass(inst->velocity_tiles);
 
     /* Expand the tiles by reading the neighborhood. Do as many passes as required. */
     int buf = 0;
     for (int i = effects->motion_blur_max; i > 0; i -= EEVEE_VELOCITY_TILE_SIZE) {
-      GPU_framebuffer_bind(fbl->velocity_tiles_fb[buf]);
+      GPU_framebuffer_bind(inst->velocity_tiles_fb[buf]);
 
       /* Change viewport to avoid invoking more pixel shaders than necessary since in one of the
        * buffer the texture is way bigger in height. This avoid creating another texture and
        * reduce VRAM usage. */
       int w = GPU_texture_width(effects->velocity_tiles_tx);
       int h = GPU_texture_height(effects->velocity_tiles_tx);
-      GPU_framebuffer_viewport_set(fbl->velocity_tiles_fb[buf], 0, 0, w, h);
+      GPU_framebuffer_viewport_set(inst->velocity_tiles_fb[buf], 0, 0, w, h);
 
-      DRW_draw_pass(psl->velocity_tiles_expand[buf]);
+      DRW_draw_pass(inst->velocity_tiles_expand[buf]);
 
-      GPU_framebuffer_viewport_reset(fbl->velocity_tiles_fb[buf]);
+      GPU_framebuffer_viewport_reset(inst->velocity_tiles_fb[buf]);
 
       buf = buf ? 0 : 1;
     }
 
     GPU_framebuffer_bind(effects->target_buffer);
-    DRW_draw_pass(psl->motion_blur);
+    DRW_draw_pass(inst->motion_blur);
     SWAP_BUFFERS();
   }
 }

@@ -124,12 +124,6 @@ GPUTexture *DRW_texture_create_3d_ex(int w,
   return tex;
 }
 
-GPUTexture *DRW_texture_create_3d(
-    int w, int h, int d, eGPUTextureFormat format, DRWTextureFlag flags, const float *fpixels)
-{
-  return DRW_texture_create_3d_ex(w, h, d, format, GPU_TEXTURE_USAGE_GENERAL, flags, fpixels);
-}
-
 GPUTexture *DRW_texture_create_cube_ex(int w,
                                        eGPUTextureFormat format,
                                        eGPUTextureUsage usage,
@@ -140,14 +134,6 @@ GPUTexture *DRW_texture_create_cube_ex(int w,
   GPUTexture *tex = GPU_texture_create_cube(__func__, w, mip_len, format, usage, fpixels);
   drw_texture_set_parameters(tex, flags);
   return tex;
-}
-
-GPUTexture *DRW_texture_create_cube(int w,
-                                    eGPUTextureFormat format,
-                                    DRWTextureFlag flags,
-                                    const float *fpixels)
-{
-  return DRW_texture_create_cube_ex(w, format, GPU_TEXTURE_USAGE_GENERAL, flags, fpixels);
 }
 
 GPUTexture *DRW_texture_create_cube_array_ex(int w,
@@ -161,12 +147,6 @@ GPUTexture *DRW_texture_create_cube_array_ex(int w,
   GPUTexture *tex = GPU_texture_create_cube_array(__func__, w, d, mip_len, format, usage, fpixels);
   drw_texture_set_parameters(tex, flags);
   return tex;
-}
-
-GPUTexture *DRW_texture_create_cube_array(
-    int w, int d, eGPUTextureFormat format, DRWTextureFlag flags, const float *fpixels)
-{
-  return DRW_texture_create_cube_array_ex(w, d, format, GPU_TEXTURE_USAGE_GENERAL, flags, fpixels);
 }
 
 GPUTexture *DRW_texture_pool_query_2d_ex(

@@ -2,12 +2,12 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(goo_common_hair_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_view_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_math_lib.glsl)
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-#pragma BLENDER_REQUIRE(closure_eval_surface_lib.glsl)
-#pragma BLENDER_REQUIRE(surface_lib.glsl)
+#include "common_hair_lib.glsl"
+#include "goo_common_view_lib.glsl"
+#include "common_math_lib.glsl"
+#include "common_utiltex_lib.glsl"
+#include "closure_eval_surface_lib.glsl"
+#include "surface_lib.glsl"
 
 RESOURCE_ID_VARYING
 

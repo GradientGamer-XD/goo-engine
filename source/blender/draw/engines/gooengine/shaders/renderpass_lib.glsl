@@ -2,6 +2,8 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
+#pragma once
+
 #define EEVEE_AOV_HASH_COLOR_TYPE_MASK 1u
 
 /* ---------------------------------------------------------------------- */

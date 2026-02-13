@@ -2,9 +2,9 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(goo_common_math_lib.glsl)
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-#pragma BLENDER_REQUIRE(lights_lib.glsl)
+#include "common_math_lib.glsl"
+#include "common_utiltex_lib.glsl"
+#include "lights_lib.glsl"
 
 void main()
 {

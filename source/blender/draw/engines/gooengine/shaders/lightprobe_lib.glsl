@@ -2,13 +2,15 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(engine_eevee_legacy_shared.h)
-#pragma BLENDER_REQUIRE(goo_common_math_geom_lib.glsl)
-#pragma BLENDER_REQUIRE(goo_common_view_lib.glsl)
-#pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
-#pragma BLENDER_REQUIRE(common_uniforms_lib.glsl)
-#pragma BLENDER_REQUIRE(ambient_occlusion_lib.glsl)
-#pragma BLENDER_REQUIRE(irradiance_lib.glsl)
+#pragma once
+
+#include "engine_eevee_legacy_shared.h"
+#include "common_math_geom_lib.glsl"
+#include "goo_common_view_lib.glsl"
+#include "common_utiltex_lib.glsl"
+#include "common_uniforms_lib.glsl"
+#include "ambient_occlusion_lib.glsl"
+#include "irradiance_lib.glsl"
 
 /* ----------- Uniforms --------- */
 

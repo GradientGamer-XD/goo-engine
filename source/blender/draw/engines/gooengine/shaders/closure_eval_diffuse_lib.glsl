@@ -2,11 +2,13 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 
-#pragma BLENDER_REQUIRE(lights_lib.glsl)
-#pragma BLENDER_REQUIRE(lightprobe_lib.glsl)
-#pragma BLENDER_REQUIRE(ambient_occlusion_lib.glsl)
-#pragma BLENDER_REQUIRE(closure_eval_lib.glsl)
-#pragma BLENDER_REQUIRE(renderpass_lib.glsl)
+#pragma once
+
+#include "lights_lib.glsl"
+#include "lightprobe_lib.glsl"
+#include "ambient_occlusion_lib.glsl"
+#include "closure_eval_lib.glsl"
+#include "renderpass_lib.glsl"
 
 struct ClosureInputDiffuse {
   vec3 N;      /** Shading normal. */
