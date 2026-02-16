@@ -51,11 +51,14 @@ Additional Considerations for building (Windows)
 --------------------------------------
 You dont necessarily need Visual Studio app to build, but you must have it installed.
 
-I reccommend using the developer command prompt instead. Run these commands below before you clone.
+How to properly setup workspace
+--------------------------------------
+I recommend using the developer command prompt instead. 
+Run these commands below before you clone.
 
 first run `git config lfs.url "https://projects.blender.org/blender/blender.git/info/lfs"`
 
-then run `GIT_LFS_SKIP_SMUDGE=1`
+then run `set` (NT)/`export` (Unix) `GIT_LFS_SKIP_SMUDGE=1`
 
 this prevents git from using the repo's LFS storage which will cause issues and rather uses Blender's official LFS host
 
