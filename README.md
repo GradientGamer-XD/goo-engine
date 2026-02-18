@@ -78,6 +78,8 @@ Gradient's Goo Engine Fork
 This fork is intended to be a free alternative host for precompiled Goo Engine builds which is normally accessible by joining Goo's Patreon. This is legally possible under the GPL.
 
 4.4 Will maintain a monthly release cycle.
-Linux and MacOS? Issues with building OSX/Linux. I dont have a MacOS machine and I am working on figuring linux out. In the meantime, Windows builds are only supported
+
+Linux and MacOS? Issues with building OSX/Linux. I dont have a MacOS machine and I am working on figuring linux out.
+In the meantime, Windows builds are only supported
 
 I encourage you to support Dillon Goo in his wonderful project
