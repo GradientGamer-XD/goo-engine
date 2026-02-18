@@ -49,15 +49,20 @@ Development
 
 Additional Considerations for building (Windows)
 --------------------------------------
-You dont necessarily need Visual Studio app to build, but you must have it installed.
+You don't necessarily need the Visual Studio IDE app to build, but you must have it installed for the BTools. VS22 is recommended
+I recommend using the developer command prompt instead of Windows Terminal or PowerShell.
 
-I reccommend using the developer command prompt instead. Run these commands below before you clone.
+
+How to properly setup workspace
+--------------------------------------
+
+Run these commands below before you clone.
 
 first run `git config lfs.url "https://projects.blender.org/blender/blender.git/info/lfs"`
 
-then run `GIT_LFS_SKIP_SMUDGE=1`
+then run `set` (NT)/`export` (Unix) `GIT_LFS_SKIP_SMUDGE=1`
 
-this prevents git from using the repo's LFS storage which will cause issues and rather uses Blender's official LFS host
+This prevents git from using the repo's LFS storage, which will cause issues and rather uses Blender's official LFS host
 
 
 License
@@ -70,6 +75,9 @@ See [blender.org/about/license](https://www.blender.org/about/license) for detai
 
 Gradient's Goo Engine Fork
 --------------------------
-This fork is intended to be a free alternative host for precompiled Goo Engine builds which is normally accessible by joining Goo's patreon. This is legally possible under the GPL.
+This fork is intended to be a free alternative host for precompiled Goo Engine builds which is normally accessible by joining Goo's Patreon. This is legally possible under the GPL.
+
+4.4 Will maintain a monthly release cycle.
+Linux and MacOS? Issues with building OSX/Linux. I dont have a MacOS machine and I am working on figuring linux out. In the meantime, Windows builds are only supported
 
 I encourage you to support Dillon Goo in his wonderful project
