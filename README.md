@@ -78,3 +78,5 @@ Gradient's Goo Engine Fork
 This fork is intended to be a free alternative host for precompiled Goo Engine builds which is normally accessible by joining Goo's patreon. This is legally possible under the GPL.
 
 I encourage you to support Dillon Goo in his wonderful project
+
+All builds are done by me and not automated
