@@ -53,9 +53,9 @@ extern DrawEngineType draw_engine_eevee_type;
 #define SWAP_DOUBLE_BUFFERS() \
   { \
     if (effects->swap_double_buffer) { \
-      std::swap(inst->main_fb, inst->double_buffer_fb); \
-      std::swap(inst->main_color_fb, inst->double_buffer_color_fb); \
-      std::swap(inst->color, inst->color_double_buffer); \
+      std::swap(fbl->main_fb, fbl->double_buffer_fb); \
+      std::swap(fbl->main_color_fb, fbl->double_buffer_color_fb); \
+      std::swap(txl->color, txl->color_double_buffer); \
       effects->swap_double_buffer = false; \
     } \
   } \
@@ -63,34 +63,34 @@ extern DrawEngineType draw_engine_eevee_type;
 
 #define SWAP_BUFFERS() \
   { \
-    if (effects->target_buffer == inst->effect_color_fb) { \
+    if (effects->target_buffer == fbl->effect_color_fb) { \
       SWAP_DOUBLE_BUFFERS(); \
-      effects->source_buffer = inst->color_post; \
-      effects->target_buffer = inst->main_color_fb; \
+      effects->source_buffer = txl->color_post; \
+      effects->target_buffer = fbl->main_color_fb; \
     } \
     else { \
       SWAP_DOUBLE_BUFFERS(); \
-      effects->source_buffer = inst->color; \
-      effects->target_buffer = inst->effect_color_fb; \
+      effects->source_buffer = txl->color; \
+      effects->target_buffer = fbl->effect_color_fb; \
     } \
   } \
   ((void)0)
 
 #define SWAP_BUFFERS_TAA() \
   { \
-    if (effects->target_buffer == inst->effect_color_fb) { \
-      std::swap(inst->effect_fb, inst->taa_history_fb); \
-      std::swap(inst->effect_color_fb, inst->taa_history_color_fb); \
-      std::swap(inst->color_post, inst->taa_history); \
-      effects->source_buffer = inst->taa_history; \
-      effects->target_buffer = inst->effect_color_fb; \
+    if (effects->target_buffer == fbl->effect_color_fb) { \
+      std::swap(fbl->effect_fb, fbl->taa_history_fb); \
+      std::swap(fbl->effect_color_fb, fbl->taa_history_color_fb); \
+      std::swap(txl->color_post, txl->taa_history); \
+      effects->source_buffer = txl->taa_history; \
+      effects->target_buffer = fbl->effect_color_fb; \
     } \
     else { \
-      std::swap(inst->main_fb, inst->taa_history_fb); \
-      std::swap(inst->main_color_fb, inst->taa_history_color_fb); \
-      std::swap(inst->color, inst->taa_history); \
-      effects->source_buffer = inst->taa_history; \
-      effects->target_buffer = inst->main_color_fb; \
+      std::swap(fbl->main_fb, fbl->taa_history_fb); \
+      std::swap(fbl->main_color_fb, fbl->taa_history_color_fb); \
+      std::swap(txl->color, txl->taa_history); \
+      effects->source_buffer = txl->taa_history; \
+      effects->target_buffer = fbl->main_color_fb; \
     } \
   } \
   ((void)0)
@@ -195,6 +195,234 @@ struct EEVEE_PlanarReflection {
 
 struct EEVEE_BoundBox {
   float center[3], halfdim[3];
+};
+
+struct EEVEE_PassList {
+  /* Shadows */
+  DRWPass *shadow_pass;
+  DRWPass *shadow_accum_pass;
+
+  /* Probes */
+  DRWPass *probe_background;
+  DRWPass *probe_glossy_compute;
+  DRWPass *probe_diffuse_compute;
+  DRWPass *probe_visibility_compute;
+  DRWPass *probe_grid_fill;
+  DRWPass *probe_display;
+  DRWPass *probe_planar_downsample_ps;
+
+  /* Effects */
+  DRWPass *ao_horizon_search;
+  DRWPass *ao_horizon_debug;
+  DRWPass *ao_accum_ps;
+  DRWPass *mist_accum_ps;
+  DRWPass *motion_blur;
+  DRWPass *bloom_blit;
+  DRWPass *bloom_downsample_first;
+  DRWPass *bloom_downsample;
+  DRWPass *bloom_upsample;
+  DRWPass *bloom_resolve;
+  DRWPass *bloom_accum_ps;
+  DRWPass *dof_setup;
+  DRWPass *dof_flatten_tiles;
+  DRWPass *dof_dilate_tiles_minmax;
+  DRWPass *dof_dilate_tiles_minabs;
+  DRWPass *dof_reduce_copy;
+  DRWPass *dof_downsample;
+  DRWPass *dof_reduce;
+  DRWPass *dof_bokeh;
+  DRWPass *dof_gather_fg;
+  DRWPass *dof_gather_fg_holefill;
+  DRWPass *dof_gather_bg;
+  DRWPass *dof_scatter_fg;
+  DRWPass *dof_scatter_bg;
+  DRWPass *dof_filter;
+  DRWPass *dof_resolve;
+  DRWPass *volumetric_world_ps;
+  DRWPass *volumetric_objects_ps;
+  DRWPass *volumetric_scatter_ps;
+  DRWPass *volumetric_integration_ps;
+  DRWPass *volumetric_resolve_ps;
+  DRWPass *volumetric_accum_ps;
+  DRWPass *ssr_raytrace;
+  DRWPass *ssr_resolve;
+  DRWPass *ssr_resolve_probe;
+  DRWPass *ssr_resolve_refl;
+  DRWPass *sss_blur_ps;
+  DRWPass *sss_resolve_ps;
+  DRWPass *sss_translucency_ps;
+  DRWPass *color_copy_ps;
+  DRWPass *color_downsample_ps;
+  DRWPass *color_downsample_cube_ps;
+  DRWPass *velocity_object;
+  DRWPass *velocity_hair;
+  DRWPass *velocity_resolve;
+  DRWPass *velocity_tiles_x;
+  DRWPass *velocity_tiles;
+  DRWPass *velocity_tiles_expand[2];
+  DRWPass *taa_resolve;
+  DRWPass *alpha_checker;
+
+  /* HiZ */
+  DRWPass *maxz_downlevel_ps;
+  DRWPass *maxz_copydepth_ps;
+  DRWPass *maxz_copydepth_layer_ps;
+
+  /* Render-pass Accumulation. */
+  DRWPass *material_accum_ps;
+  DRWPass *background_accum_ps;
+  DRWPass *transparent_accum_ps;
+  DRWPass *cryptomatte_ps;
+
+  DRWPass *depth_ps;
+  DRWPass *depth_cull_ps;
+  DRWPass *depth_clip_ps;
+  DRWPass *depth_clip_cull_ps;
+  DRWPass *depth_refract_ps;
+  DRWPass *depth_refract_cull_ps;
+  DRWPass *depth_refract_clip_ps;
+  DRWPass *depth_refract_clip_cull_ps;
+  DRWPass *material_ps;
+  DRWPass *material_cull_ps;
+  DRWPass *material_refract_ps;
+  DRWPass *material_refract_cull_ps;
+  DRWPass *material_sss_ps;
+  DRWPass *material_sss_cull_ps;
+  DRWPass *transparent_pass;
+  DRWPass *background_ps;
+  DRWPass *update_noise_pass;
+  DRWPass *lookdev_glossy_pass;
+  DRWPass *lookdev_diffuse_pass;
+  DRWPass *renderpass_pass;
+};
+
+struct EEVEE_FramebufferList {
+  /* Effects */
+  GPUFrameBuffer *gtao_fb;
+  GPUFrameBuffer *gtao_debug_fb;
+  GPUFrameBuffer *downsample_fb;
+  GPUFrameBuffer *maxzbuffer_fb;
+  GPUFrameBuffer *bloom_blit_fb;
+  GPUFrameBuffer *bloom_down_fb[MAX_BLOOM_STEP];
+  GPUFrameBuffer *bloom_accum_fb[MAX_BLOOM_STEP - 1];
+  GPUFrameBuffer *bloom_pass_accum_fb;
+  GPUFrameBuffer *cryptomatte_fb;
+  GPUFrameBuffer *shadow_accum_fb;
+  GPUFrameBuffer *ssr_accum_fb;
+  GPUFrameBuffer *sss_blur_fb;
+  GPUFrameBuffer *sss_blit_fb;
+  GPUFrameBuffer *sss_resolve_fb;
+  GPUFrameBuffer *sss_clear_fb;
+  GPUFrameBuffer *sss_translucency_fb;
+  GPUFrameBuffer *sss_accum_fb;
+  GPUFrameBuffer *dof_setup_fb;
+  GPUFrameBuffer *dof_flatten_tiles_fb;
+  GPUFrameBuffer *dof_dilate_tiles_fb;
+  GPUFrameBuffer *dof_downsample_fb;
+  GPUFrameBuffer *dof_reduce_fb;
+  GPUFrameBuffer *dof_reduce_copy_fb;
+  GPUFrameBuffer *dof_bokeh_fb;
+  GPUFrameBuffer *dof_gather_fg_fb;
+  GPUFrameBuffer *dof_filter_fg_fb;
+  GPUFrameBuffer *dof_gather_fg_holefill_fb;
+  GPUFrameBuffer *dof_gather_bg_fb;
+  GPUFrameBuffer *dof_filter_bg_fb;
+  GPUFrameBuffer *dof_scatter_fg_fb;
+  GPUFrameBuffer *dof_scatter_bg_fb;
+  GPUFrameBuffer *volumetric_fb;
+  GPUFrameBuffer *volumetric_scat_fb;
+  GPUFrameBuffer *volumetric_integ_fb;
+  GPUFrameBuffer *volumetric_accum_fb;
+  GPUFrameBuffer *screen_tracing_fb;
+  GPUFrameBuffer *mist_accum_fb;
+  GPUFrameBuffer *material_accum_fb;
+  GPUFrameBuffer *renderpass_fb;
+  GPUFrameBuffer *ao_accum_fb;
+  GPUFrameBuffer *velocity_resolve_fb;
+  GPUFrameBuffer *velocity_fb;
+  GPUFrameBuffer *velocity_tiles_fb[2];
+
+  GPUFrameBuffer *update_noise_fb;
+
+  GPUFrameBuffer *planarref_fb;
+  GPUFrameBuffer *planar_downsample_fb;
+
+  GPUFrameBuffer *main_fb;
+  GPUFrameBuffer *main_color_fb;
+  GPUFrameBuffer *effect_fb;
+  GPUFrameBuffer *effect_color_fb;
+  GPUFrameBuffer *radiance_filtered_fb;
+  GPUFrameBuffer *double_buffer_fb;
+  GPUFrameBuffer *double_buffer_color_fb;
+  GPUFrameBuffer *double_buffer_depth_fb;
+  GPUFrameBuffer *transparent_rpass_fb;
+  GPUFrameBuffer *transparent_rpass_accum_fb;
+  GPUFrameBuffer *taa_history_fb;
+  GPUFrameBuffer *taa_history_color_fb;
+};
+
+struct EEVEE_TextureList {
+  /* Effects */
+  GPUTexture *color_post; /* R16_G16_B16 */
+  GPUTexture *mist_accum;
+  GPUTexture *ao_accum;
+  GPUTexture *sss_accum;
+  GPUTexture *env_accum;
+  GPUTexture *diff_color_accum;
+  GPUTexture *diff_light_accum;
+  GPUTexture *spec_color_accum;
+  GPUTexture *spec_light_accum;
+  GPUTexture *aov_surface_accum[MAX_AOVS];
+  GPUTexture *emit_accum;
+  GPUTexture *bloom_accum;
+  GPUTexture *ssr_accum;
+  GPUTexture *shadow_accum;
+  GPUTexture *transparent_accum;
+  GPUTexture *transparent_depth_tmp;
+  GPUTexture *transparent_color_tmp;
+  GPUTexture *cryptomatte;
+  GPUTexture *taa_history;
+  /* Could not be pool texture because of mipmapping. */
+  GPUTexture *dof_reduced_color;
+  GPUTexture *dof_reduced_coc;
+
+  GPUTexture *volume_prop_scattering;
+  GPUTexture *volume_prop_extinction;
+  GPUTexture *volume_prop_emission;
+  GPUTexture *volume_prop_phase;
+  GPUTexture *volume_scatter;
+  GPUTexture *volume_transmit;
+  GPUTexture *volume_scatter_history;
+  GPUTexture *volume_transmit_history;
+  GPUTexture *volume_scatter_accum;
+  GPUTexture *volume_transmittance_accum;
+
+  GPUTexture *lookdev_grid_tx;
+  GPUTexture *lookdev_cube_tx;
+
+  GPUTexture *planar_pool;
+  GPUTexture *planar_depth;
+
+  GPUTexture *maxzbuffer;
+  GPUTexture *filtered_radiance;
+
+  GPUTexture *renderpass;
+
+  GPUTexture *color; /* R16_G16_B16 */
+  GPUTexture *color_double_buffer;
+  GPUTexture *depth_double_buffer;
+};
+
+struct EEVEE_StorageList {
+  /* Effects */
+  EEVEE_EffectsInfo *effects;
+
+  EEVEE_PrivateData *g_data;
+
+  LightCache *lookdev_lightcache;
+  EEVEE_LightProbe *lookdev_cube_data;
+  EEVEE_LightGrid *lookdev_grid_data;
+  LightCacheTexture *lookdev_cube_mips;
 };
 
 /* ************ RENDERPASS UBO ************* */
@@ -589,6 +817,7 @@ struct EEVEE_EffectsInfo {
   GPUTexture *bloom_upsample[MAX_BLOOM_STEP - 1];
   GPUTexture *unf_source_buffer; /* pointer copy */
   GPUTexture *unf_base_buffer;   /* pointer copy */
+  /* Not allocated, just a copy of a *GPUtexture in EEVEE_TextureList. */
   GPUTexture *source_buffer;     /* latest updated texture */
   GPUFrameBuffer *target_buffer; /* next target to render to */
   GPUTexture *final_tx;          /* Final color to transform to display color space. */
@@ -751,237 +980,13 @@ struct EEVEE_CryptomatteSample {
 
 /* *********************************** */
 
-struct GOOENGINE_Instance {
-
-  /* Shadows */
-  DRWPass *shadow_pass;
-  DRWPass *shadow_accum_pass;
-
-  /* Probes */
-  DRWPass *probe_background;
-  DRWPass *probe_glossy_compute;
-  DRWPass *probe_diffuse_compute;
-  DRWPass *probe_visibility_compute;
-  DRWPass *probe_grid_fill;
-  DRWPass *probe_display;
-  DRWPass *probe_planar_downsample_ps;
-
-  /* Effects */
-  DRWPass *ao_horizon_search;
-  DRWPass *ao_horizon_debug;
-  DRWPass *ao_accum_ps;
-  DRWPass *mist_accum_ps;
-  DRWPass *motion_blur;
-  DRWPass *bloom_blit;
-  DRWPass *bloom_downsample_first;
-  DRWPass *bloom_downsample;
-  DRWPass *bloom_upsample;
-  DRWPass *bloom_resolve;
-  DRWPass *bloom_accum_ps;
-  DRWPass *dof_setup;
-  DRWPass *dof_flatten_tiles;
-  DRWPass *dof_dilate_tiles_minmax;
-  DRWPass *dof_dilate_tiles_minabs;
-  DRWPass *dof_reduce_copy;
-  DRWPass *dof_downsample;
-  DRWPass *dof_reduce;
-  DRWPass *dof_bokeh;
-  DRWPass *dof_gather_fg;
-  DRWPass *dof_gather_fg_holefill;
-  DRWPass *dof_gather_bg;
-  DRWPass *dof_scatter_fg;
-  DRWPass *dof_scatter_bg;
-  DRWPass *dof_filter;
-  DRWPass *dof_resolve;
-  DRWPass *volumetric_world_ps;
-  DRWPass *volumetric_objects_ps;
-  DRWPass *volumetric_scatter_ps;
-  DRWPass *volumetric_integration_ps;
-  DRWPass *volumetric_resolve_ps;
-  DRWPass *volumetric_accum_ps;
-  DRWPass *ssr_raytrace;
-  DRWPass *ssr_resolve;
-  DRWPass *ssr_resolve_probe;
-  DRWPass *ssr_resolve_refl;
-  DRWPass *sss_blur_ps;
-  DRWPass *sss_resolve_ps;
-  DRWPass *sss_translucency_ps;
-  DRWPass *color_copy_ps;
-  DRWPass *color_downsample_ps;
-  DRWPass *color_downsample_cube_ps;
-  DRWPass *velocity_object;
-  DRWPass *velocity_hair;
-  DRWPass *velocity_resolve;
-  DRWPass *velocity_tiles_x;
-  DRWPass *velocity_tiles;
-  DRWPass *velocity_tiles_expand[2];
-  DRWPass *taa_resolve;
-  DRWPass *alpha_checker;
-
-  /* HiZ */
-  DRWPass *maxz_downlevel_ps;
-  DRWPass *maxz_copydepth_ps;
-  DRWPass *maxz_copydepth_layer_ps;
-
-  /* Render-pass Accumulation. */
-  DRWPass *material_accum_ps;
-  DRWPass *background_accum_ps;
-  DRWPass *transparent_accum_ps;
-  DRWPass *cryptomatte_ps;
-
-  DRWPass *depth_ps;
-  DRWPass *depth_cull_ps;
-  DRWPass *depth_clip_ps;
-  DRWPass *depth_clip_cull_ps;
-  DRWPass *depth_refract_ps;
-  DRWPass *depth_refract_cull_ps;
-  DRWPass *depth_refract_clip_ps;
-  DRWPass *depth_refract_clip_cull_ps;
-  DRWPass *material_ps;
-  DRWPass *material_cull_ps;
-  DRWPass *material_refract_ps;
-  DRWPass *material_refract_cull_ps;
-  DRWPass *material_sss_ps;
-  DRWPass *material_sss_cull_ps;
-  DRWPass *transparent_pass;
-  DRWPass *background_ps;
-  DRWPass *update_noise_pass;
-  DRWPass *lookdev_glossy_pass;
-  DRWPass *lookdev_diffuse_pass;
-  DRWPass *renderpass_pass;
-
-  /* Effects */
-  GPUFrameBuffer *gtao_fb;
-  GPUFrameBuffer *gtao_debug_fb;
-  GPUFrameBuffer *downsample_fb;
-  GPUFrameBuffer *maxzbuffer_fb;
-  GPUFrameBuffer *bloom_blit_fb;
-  GPUFrameBuffer *bloom_down_fb[MAX_BLOOM_STEP];
-  GPUFrameBuffer *bloom_accum_fb[MAX_BLOOM_STEP - 1];
-  GPUFrameBuffer *bloom_pass_accum_fb;
-  GPUFrameBuffer *cryptomatte_fb;
-  GPUFrameBuffer *shadow_accum_fb;
-  GPUFrameBuffer *ssr_accum_fb;
-  GPUFrameBuffer *sss_blur_fb;
-  GPUFrameBuffer *sss_blit_fb;
-  GPUFrameBuffer *sss_resolve_fb;
-  GPUFrameBuffer *sss_clear_fb;
-  GPUFrameBuffer *sss_translucency_fb;
-  GPUFrameBuffer *sss_accum_fb;
-  GPUFrameBuffer *dof_setup_fb;
-  GPUFrameBuffer *dof_flatten_tiles_fb;
-  GPUFrameBuffer *dof_dilate_tiles_fb;
-  GPUFrameBuffer *dof_downsample_fb;
-  GPUFrameBuffer *dof_reduce_fb;
-  GPUFrameBuffer *dof_reduce_copy_fb;
-  GPUFrameBuffer *dof_bokeh_fb;
-  GPUFrameBuffer *dof_gather_fg_fb;
-  GPUFrameBuffer *dof_filter_fg_fb;
-  GPUFrameBuffer *dof_gather_fg_holefill_fb;
-  GPUFrameBuffer *dof_gather_bg_fb;
-  GPUFrameBuffer *dof_filter_bg_fb;
-  GPUFrameBuffer *dof_scatter_fg_fb;
-  GPUFrameBuffer *dof_scatter_bg_fb;
-  GPUFrameBuffer *volumetric_fb;
-  GPUFrameBuffer *volumetric_scat_fb;
-  GPUFrameBuffer *volumetric_integ_fb;
-  GPUFrameBuffer *volumetric_accum_fb;
-  GPUFrameBuffer *screen_tracing_fb;
-  GPUFrameBuffer *mist_accum_fb;
-  GPUFrameBuffer *material_accum_fb;
-  GPUFrameBuffer *renderpass_fb;
-  GPUFrameBuffer *ao_accum_fb;
-  GPUFrameBuffer *velocity_resolve_fb;
-  GPUFrameBuffer *velocity_fb;
-  GPUFrameBuffer *velocity_tiles_fb[2];
-
-  GPUFrameBuffer *update_noise_fb;
-
-  GPUFrameBuffer *planarref_fb;
-  GPUFrameBuffer *planar_downsample_fb;
-
-  GPUFrameBuffer *main_fb;
-  GPUFrameBuffer *main_color_fb;
-  GPUFrameBuffer *effect_fb;
-  GPUFrameBuffer *effect_color_fb;
-  GPUFrameBuffer *radiance_filtered_fb;
-  GPUFrameBuffer *double_buffer_fb;
-  GPUFrameBuffer *double_buffer_color_fb;
-  GPUFrameBuffer *double_buffer_depth_fb;
-  GPUFrameBuffer *transparent_rpass_fb;
-  GPUFrameBuffer *transparent_rpass_accum_fb;
-  GPUFrameBuffer *taa_history_fb;
-  GPUFrameBuffer *taa_history_color_fb;
-
-  /* Effects */
-  GPUTexture *color_post; /* R16_G16_B16 */
-  GPUTexture *mist_accum;
-  GPUTexture *ao_accum;
-  GPUTexture *sss_accum;
-  GPUTexture *env_accum;
-  GPUTexture *diff_color_accum;
-  GPUTexture *diff_light_accum;
-  GPUTexture *spec_color_accum;
-  GPUTexture *spec_light_accum;
-  GPUTexture *aov_surface_accum[MAX_AOVS];
-  GPUTexture *emit_accum;
-  GPUTexture *bloom_accum;
-  GPUTexture *ssr_accum;
-  GPUTexture *shadow_accum;
-  GPUTexture *transparent_accum;
-  GPUTexture *transparent_depth_tmp;
-  GPUTexture *transparent_color_tmp;
-  GPUTexture *cryptomatte;
-  GPUTexture *taa_history;
-  /* Could not be pool texture because of mipmapping. */
-  GPUTexture *dof_reduced_color;
-  GPUTexture *dof_reduced_coc;
-
-  GPUTexture *volume_prop_scattering;
-  GPUTexture *volume_prop_extinction;
-  GPUTexture *volume_prop_emission;
-  GPUTexture *volume_prop_phase;
-  GPUTexture *volume_scatter;
-  GPUTexture *volume_transmit;
-  GPUTexture *volume_scatter_history;
-  GPUTexture *volume_transmit_history;
-  GPUTexture *volume_scatter_accum;
-  GPUTexture *volume_transmittance_accum;
-
-  GPUTexture *lookdev_grid_tx;
-  GPUTexture *lookdev_cube_tx;
-
-  GPUTexture *planar_pool;
-  GPUTexture *planar_depth;
-
-  GPUTexture *maxzbuffer;
-  GPUTexture *filtered_radiance;
-
-  GPUTexture *renderpass;
-
-  GPUTexture *color; /* R16_G16_B16 */
-  GPUTexture *color_double_buffer;
-  GPUTexture *depth_double_buffer;
-
-  /* Effects */
-  EEVEE_EffectsInfo *effects;
-
-  EEVEE_PrivateData *g_data;
-
-  LightCache *lookdev_lightcache;
-  EEVEE_LightProbe *lookdev_cube_data;
-  EEVEE_LightGrid *lookdev_grid_data;
-  LightCacheTexture *lookdev_cube_mips;
-
-};
-
 struct EEVEE_Data {
   void *engine_type;
-  DRWViewportEmptyList *fbl;
-  DRWViewportEmptyList *txl;
-  DRWViewportEmptyList *psl;
-  DRWViewportEmptyList *stl;
-  GOOENGINE_Instance *instance;
+  EEVEE_FramebufferList *fbl;
+  EEVEE_TextureList *txl;
+  EEVEE_PassList *psl;
+  EEVEE_StorageList *stl;
+  void *instance_data;
 
   char info[GPU_INFO_SIZE];
 };
@@ -1100,7 +1105,9 @@ GPUTexture *EEVEE_materials_get_dummy_3d();
 #endif
 
 void EEVEE_materials_init(EEVEE_ViewLayerData *sldata,
-                          EEVEE_Data *vedata);
+                          EEVEE_Data *vedata,
+                          EEVEE_StorageList *stl,
+                          EEVEE_FramebufferList *fbl);
 void EEVEE_materials_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_materials_cache_populate(EEVEE_Data *vedata,
                                     EEVEE_ViewLayerData *sldata,
@@ -1116,7 +1123,7 @@ void EEVEE_object_curves_cache_populate(EEVEE_Data *vedata,
                                         bool *cast_shadow);
 void EEVEE_materials_cache_finish(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_materials_free();
-void EEVEE_update_noise(EEVEE_Data *vedata, const double offsets[3]);
+void EEVEE_update_noise(EEVEE_PassList *psl, EEVEE_FramebufferList *fbl, const double offsets[3]);
 void EEVEE_material_renderpasses_init(EEVEE_Data *vedata);
 void EEVEE_material_output_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata, uint tot_samples);
 void EEVEE_material_output_accumulate(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
@@ -1498,11 +1505,11 @@ void EEVEE_material_transparent_output_accumulate(EEVEE_Data *vedata);
  *
  * This method will create a shading group to perform the post-processing for the given
  * `renderpass_type`. The post-processing will be done and the result will be stored in the
- * `inst->renderpass` texture.
+ * `vedata->txl->renderpass` texture.
  *
  * Only invoke this function for passes that need post-processing.
  *
- * After invoking this function the active frame-buffer is set to `inst->renderpass_fb`.
+ * After invoking this function the active frame-buffer is set to `vedata->fbl->renderpass_fb`.
  */
 void EEVEE_renderpasses_postprocess(EEVEE_ViewLayerData *sldata,
                                     EEVEE_Data *vedata,
@@ -1521,7 +1528,7 @@ uint EEVEE_renderpasses_aov_hash(const ViewLayerAOV *aov);
 
 void EEVEE_temporal_sampling_reset(EEVEE_Data *vedata);
 void EEVEE_temporal_sampling_create_view(EEVEE_Data *vedata);
-int EEVEE_temporal_sampling_sample_count_get(const Scene *scene, const GOOENGINE_Instance *inst);
+int EEVEE_temporal_sampling_sample_count_get(const Scene *scene, const EEVEE_StorageList *stl);
 int EEVEE_temporal_sampling_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_temporal_sampling_offset_calc(const double ht_point[2],
                                          float filter_size,

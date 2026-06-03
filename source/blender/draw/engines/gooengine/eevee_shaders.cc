@@ -1421,7 +1421,6 @@ GPUMaterial *EEVEE_material_default_get(Scene *scene, Material *ma, int options)
 GPUMaterial *EEVEE_material_get(
     EEVEE_Data *vedata, Scene *scene, Material *ma, World *wo, int options)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
   if ((ma && (!ma->use_nodes || !ma->nodetree)) || (wo && (!wo->use_nodes || !wo->nodetree))) {
     options |= VAR_DEFAULT;
   }
@@ -1446,12 +1445,12 @@ GPUMaterial *EEVEE_material_get(
       /* Determine optimization status for remaining compilations counter. */
       int optimization_status = GPU_material_optimization_status(mat);
       if (optimization_status == GPU_MAT_OPTIMIZATION_QUEUED) {
-        inst->g_data->queued_optimise_shaders_count++;
+        vedata->stl->g_data->queued_optimise_shaders_count++;
       }
       break;
     }
     case GPU_MAT_QUEUED: {
-      inst->g_data->queued_shaders_count++;
+      vedata->stl->g_data->queued_shaders_count++;
       GPUMaterial *default_mat = EEVEE_material_default_get(scene, ma, options);
       /* Mark pending material with its default material for future cache warming. */
       GPU_material_set_default(mat, default_mat);

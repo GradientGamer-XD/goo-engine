@@ -943,7 +943,9 @@ static void eevee_lightbake_delete_resources(EEVEE_LightBake *lbake)
 static void eevee_lightbake_cache_create(EEVEE_Data *vedata, EEVEE_LightBake *lbake)
 {
   using namespace blender::draw;
-  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_TextureList *txl = vedata->txl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
   EEVEE_ViewLayerData *sldata = EEVEE_view_layer_data_ensure();
   Scene *scene_eval = DEG_get_evaluated_scene(lbake->depsgraph);
   lbake->sldata = sldata;
@@ -953,9 +955,9 @@ static void eevee_lightbake_cache_create(EEVEE_Data *vedata, EEVEE_LightBake *lb
   scene_eval->eevee.taa_samples = 1;
   scene_eval->eevee.gi_irradiance_smoothing = 0.0f;
 
-  inst->g_data = static_cast<EEVEE_PrivateData *>(MEM_callocN(sizeof(*inst->g_data), __func__));
-  inst->g_data->background_alpha = 1.0f;
-  inst->g_data->render_timesteps = 1;
+  stl->g_data = static_cast<EEVEE_PrivateData *>(MEM_callocN(sizeof(*stl->g_data), __func__));
+  stl->g_data->background_alpha = 1.0f;
+  stl->g_data->render_timesteps = 1;
 
   /* XXX TODO: remove this. This is in order to make the init functions work. */
   if (DRW_view_default_get() == nullptr) {
@@ -968,16 +970,16 @@ static void eevee_lightbake_cache_create(EEVEE_Data *vedata, EEVEE_LightBake *lb
     DRW_view_set_active(view);
   }
 
-  /* HACK: set inst->color but unset it before Draw Manager frees it. */
-  inst->color = lbake->rt_color;
+  /* HACK: set txl->color but unset it before Draw Manager frees it. */
+  txl->color = lbake->rt_color;
   const int viewport_size[2] = {
-      GPU_texture_width(inst->color),
-      GPU_texture_height(inst->color),
+      GPU_texture_width(txl->color),
+      GPU_texture_height(txl->color),
   };
   DRW_render_viewport_size_set(viewport_size);
 
   EEVEE_effects_init(sldata, vedata, nullptr, true);
-  EEVEE_materials_init(sldata, vedata);
+  EEVEE_materials_init(sldata, vedata, stl, fbl);
   EEVEE_shadows_init(sldata);
   EEVEE_lightprobes_init(sldata, vedata);
 
@@ -1006,13 +1008,13 @@ static void eevee_lightbake_cache_create(EEVEE_Data *vedata, EEVEE_LightBake *lb
   EEVEE_shadows_update(sldata, vedata);
 
   /* Disable volumetrics when baking. */
-  inst->effects->enabled_effects &= ~EFFECT_VOLUMETRIC;
+  stl->effects->enabled_effects &= ~EFFECT_VOLUMETRIC;
 
   EEVEE_subsurface_draw_init(sldata, vedata);
   EEVEE_effects_draw_init(sldata, vedata);
   EEVEE_volumes_draw_init(sldata, vedata);
 
-  inst->color = nullptr;
+  txl->color = nullptr;
 
   DRW_render_instance_buffer_finish();
   DRW_curves_update(*DRW_manager_get());
@@ -1041,7 +1043,6 @@ static void eevee_lightbake_copy_irradiance(EEVEE_LightBake *lbake, LightCache *
 static void eevee_lightbake_render_world_sample(void *ved, void *user_data)
 {
   EEVEE_Data *vedata = (EEVEE_Data *)ved;
-  GOOENGINE_Instance *inst = vedata->instance;
   EEVEE_ViewLayerData *sldata = EEVEE_view_layer_data_ensure();
   EEVEE_LightBake *lbake = (EEVEE_LightBake *)user_data;
   Scene *scene_eval = DEG_get_evaluated_scene(lbake->depsgraph);
@@ -1049,7 +1050,7 @@ static void eevee_lightbake_render_world_sample(void *ved, void *user_data)
   float clamp = scene_eval->eevee.gi_glossy_clamp;
   float filter_quality = scene_eval->eevee.gi_filter_quality;
 
-  /* TODO: do this once for the whole bake when we have independent DRWContexts. */
+  /* TODO: do this once for the whole bake when we have independent DRWManagers. */
   eevee_lightbake_cache_create(vedata, lbake);
 
   sldata->common_data.ray_type = EEVEE_RAY_GLOSSY;
@@ -1078,7 +1079,7 @@ static void eevee_lightbake_render_world_sample(void *ved, void *user_data)
     GPU_framebuffer_bind(lbake->store_fb);
     /* Clear to 1.0f for visibility. */
     GPU_framebuffer_clear_color(lbake->store_fb, blender::float4{1.0f, 1.0f, 1.0f, 1.0f});
-    DRW_draw_pass(inst->probe_grid_fill);
+    DRW_draw_pass(vedata->psl->probe_grid_fill);
 
     std::swap(lbake->grid_prev, lcache->grid_tx.tex);
 
@@ -1174,7 +1175,7 @@ static void eevee_lightbake_render_grid_sample(void *ved, void *user_data)
   /* Use the previous bounce for rendering this bounce. */
   std::swap(lbake->grid_prev, lcache->grid_tx.tex);
 
-  /* TODO: do this once for the whole bake when we have independent DRWContexts.
+  /* TODO: do this once for the whole bake when we have independent DRWManagers.
    * WARNING: Some of the things above require this. */
   eevee_lightbake_cache_create(vedata, lbake);
 
@@ -1252,7 +1253,7 @@ static void eevee_lightbake_render_probe_sample(void *ved, void *user_data)
   float clamp = scene_eval->eevee.gi_glossy_clamp;
   float filter_quality = scene_eval->eevee.gi_filter_quality;
 
-  /* TODO: do this once for the whole bake when we have independent DRWContexts. */
+  /* TODO: do this once for the whole bake when we have independent DRWManagers. */
   eevee_lightbake_cache_create(vedata, lbake);
 
   /* Disable specular lighting when rendering probes to avoid feedback loops (looks bad). */
@@ -1533,8 +1534,7 @@ void EEVEE_lightbake_update_world_quick(EEVEE_ViewLayerData *sldata,
                                         EEVEE_Data *vedata,
                                         const Scene *scene)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  LightCache *lcache = inst->g_data->light_cache;
+  LightCache *lcache = vedata->stl->g_data->light_cache;
   float clamp = scene->eevee.gi_glossy_clamp;
   float filter_quality = scene->eevee.gi_filter_quality;
 

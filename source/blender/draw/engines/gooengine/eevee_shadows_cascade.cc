@@ -404,9 +404,10 @@ void EEVEE_shadows_draw_cascades(EEVEE_ViewLayerData *sldata,
                                  DRWView *view,
                                  int cascade_index)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
+  EEVEE_PrivateData *g_data = stl->g_data;
   EEVEE_LightsInfo *linfo = sldata->lights;
 
   EEVEE_Light *evli = linfo->light_data + linfo->shadow_cascade_light_indices[cascade_index];
@@ -437,6 +438,6 @@ void EEVEE_shadows_draw_cascades(EEVEE_ViewLayerData *sldata,
         sldata->shadow_fb, sldata->shadow_cascade_id_pool, 1, layer, 0);
     GPU_framebuffer_bind(sldata->shadow_fb);
     GPU_framebuffer_clear_depth(sldata->shadow_fb, 1.0f);
-    DRW_draw_pass(inst->shadow_pass);
+    DRW_draw_pass(psl->shadow_pass);
   }
 }

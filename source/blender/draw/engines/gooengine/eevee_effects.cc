@@ -59,24 +59,27 @@ void EEVEE_effects_init(EEVEE_ViewLayerData *sldata,
                         Object *camera,
                         const bool minimal)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
   EEVEE_CommonUniformBuffer *common_data = &sldata->common_data;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_TextureList *txl = vedata->txl;
   EEVEE_EffectsInfo *effects;
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
   const float *viewport_size = DRW_viewport_size_get();
   const int size_fs[2] = {int(viewport_size[0]), int(viewport_size[1])};
-  if (!inst->effects) {
-    inst->effects = static_cast<EEVEE_EffectsInfo *>(
+
+  if (!stl->effects) {
+    stl->effects = static_cast<EEVEE_EffectsInfo *>(
         MEM_callocN(sizeof(EEVEE_EffectsInfo), "EEVEE_EffectsInfo"));
-    inst->effects->taa_render_sample = 1;
+    stl->effects->taa_render_sample = 1;
   }
 
-  /* WORKAROUND: EEVEE_lookdev_init can reset TAA and needs a inst->effect.
+  /* WORKAROUND: EEVEE_lookdev_init can reset TAA and needs a stl->effect.
    * So putting this before EEVEE_temporal_sampling_init for now. */
   EEVEE_lookdev_init(vedata);
 
-  effects = inst->effects;
+  effects = stl->effects;
 
   int div = 1 << MAX_SCREEN_BUFFERS_LOD_LEVEL;
   effects->hiz_size[0] = divide_ceil_u(size_fs[0], div) * div;
@@ -99,7 +102,7 @@ void EEVEE_effects_init(EEVEE_ViewLayerData *sldata,
   EEVEE_subsurface_init(sldata, vedata);
 
   /* Force normal buffer creation. */
-  if (!minimal && (inst->g_data->render_passes & EEVEE_RENDER_PASS_NORMAL) != 0) {
+  if (!minimal && (stl->g_data->render_passes & EEVEE_RENDER_PASS_NORMAL) != 0) {
     effects->enabled_effects |= EFFECT_NORMAL_BUFFER;
   }
 
@@ -109,29 +112,29 @@ void EEVEE_effects_init(EEVEE_ViewLayerData *sldata,
 
   if (GPU_type_matches_ex(GPU_DEVICE_INTEL, GPU_OS_ANY, GPU_DRIVER_ANY, GPU_BACKEND_OPENGL)) {
     /* Intel gpu seems to have problem rendering to only depth hiz_format */
-    DRW_texture_ensure_2d(&inst->maxzbuffer, UNPACK2(effects->hiz_size), GPU_R32F, DRW_TEX_MIPMAP);
-    GPU_framebuffer_ensure_config(&inst->maxzbuffer_fb,
+    DRW_texture_ensure_2d(&txl->maxzbuffer, UNPACK2(effects->hiz_size), GPU_R32F, DRW_TEX_MIPMAP);
+    GPU_framebuffer_ensure_config(&fbl->maxzbuffer_fb,
                                   {
                                       GPU_ATTACHMENT_NONE,
-                                      GPU_ATTACHMENT_TEXTURE(inst->maxzbuffer),
+                                      GPU_ATTACHMENT_TEXTURE(txl->maxzbuffer),
                                   });
   }
   else {
     eGPUTextureUsage usage = GPU_TEXTURE_USAGE_ATTACHMENT | GPU_TEXTURE_USAGE_SHADER_READ;
-    DRW_texture_ensure_2d_ex(&inst->maxzbuffer,
+    DRW_texture_ensure_2d_ex(&txl->maxzbuffer,
                              UNPACK2(effects->hiz_size),
                              GPU_DEPTH_COMPONENT24,
                              usage,
                              DRW_TEX_MIPMAP);
-    GPU_framebuffer_ensure_config(&inst->maxzbuffer_fb,
+    GPU_framebuffer_ensure_config(&fbl->maxzbuffer_fb,
                                   {
-                                      GPU_ATTACHMENT_TEXTURE(inst->maxzbuffer),
+                                      GPU_ATTACHMENT_TEXTURE(txl->maxzbuffer),
                                       GPU_ATTACHMENT_NONE,
                                   });
   }
 
-  if (inst->downsample_fb == nullptr) {
-    inst->downsample_fb = GPU_framebuffer_create("downsample_fb");
+  if (fbl->downsample_fb == nullptr) {
+    fbl->downsample_fb = GPU_framebuffer_create("downsample_fb");
   }
 
   /**
@@ -150,21 +153,21 @@ void EEVEE_effects_init(EEVEE_ViewLayerData *sldata,
    */
   if ((effects->enabled_effects & EFFECT_RADIANCE_BUFFER) != 0) {
     eGPUTextureUsage usage = GPU_TEXTURE_USAGE_ATTACHMENT | GPU_TEXTURE_USAGE_SHADER_READ;
-    DRW_texture_ensure_2d_ex(&inst->filtered_radiance,
+    DRW_texture_ensure_2d_ex(&txl->filtered_radiance,
                              UNPACK2(effects->hiz_size),
                              GPU_R11F_G11F_B10F,
                              usage,
                              DRWTextureFlag(DRW_TEX_FILTER | DRW_TEX_MIPMAP));
 
-    GPU_framebuffer_ensure_config(&inst->radiance_filtered_fb,
+    GPU_framebuffer_ensure_config(&fbl->radiance_filtered_fb,
                                   {
                                       GPU_ATTACHMENT_NONE,
-                                      GPU_ATTACHMENT_TEXTURE(inst->filtered_radiance),
+                                      GPU_ATTACHMENT_TEXTURE(txl->filtered_radiance),
                                   });
   }
   else {
-    DRW_TEXTURE_FREE_SAFE(inst->filtered_radiance);
-    GPU_FRAMEBUFFER_FREE_SAFE(inst->radiance_filtered_fb);
+    DRW_TEXTURE_FREE_SAFE(txl->filtered_radiance);
+    GPU_FRAMEBUFFER_FREE_SAFE(fbl->radiance_filtered_fb);
   }
 
   /**
@@ -175,7 +178,7 @@ void EEVEE_effects_init(EEVEE_ViewLayerData *sldata,
     effects->ssr_normal_input = DRW_texture_pool_query_2d_ex(
         size_fs[0], size_fs[1], GPU_RG16, usage, &draw_engine_eevee_type);
 
-    GPU_framebuffer_texture_attach(inst->main_fb, effects->ssr_normal_input, 1, 0);
+    GPU_framebuffer_texture_attach(fbl->main_fb, effects->ssr_normal_input, 1, 0);
   }
   else {
     effects->ssr_normal_input = nullptr;
@@ -189,14 +192,14 @@ void EEVEE_effects_init(EEVEE_ViewLayerData *sldata,
     effects->velocity_tx = DRW_texture_pool_query_2d_ex(
         size_fs[0], size_fs[1], GPU_RGBA16, usage, &draw_engine_eevee_type);
 
-    GPU_framebuffer_ensure_config(&inst->velocity_fb,
+    GPU_framebuffer_ensure_config(&fbl->velocity_fb,
                                   {
                                       GPU_ATTACHMENT_TEXTURE(dtxl->depth),
                                       GPU_ATTACHMENT_TEXTURE(effects->velocity_tx),
                                   });
 
     GPU_framebuffer_ensure_config(
-        &inst->velocity_resolve_fb,
+        &fbl->velocity_resolve_fb,
         {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(effects->velocity_tx)});
   }
   else {
@@ -208,29 +211,31 @@ void EEVEE_effects_init(EEVEE_ViewLayerData *sldata,
    */
   if ((effects->enabled_effects & EFFECT_DEPTH_DOUBLE_BUFFER) != 0) {
     DRW_texture_ensure_fullscreen_2d(
-        &inst->depth_double_buffer, GPU_DEPTH24_STENCIL8, DRWTextureFlag(0));
+        &txl->depth_double_buffer, GPU_DEPTH24_STENCIL8, DRWTextureFlag(0));
 
-    GPU_framebuffer_ensure_config(&inst->double_buffer_depth_fb,
-                                  {GPU_ATTACHMENT_TEXTURE(inst->depth_double_buffer)});
+    GPU_framebuffer_ensure_config(&fbl->double_buffer_depth_fb,
+                                  {GPU_ATTACHMENT_TEXTURE(txl->depth_double_buffer)});
   }
   else {
     /* Cleanup to release memory */
-    DRW_TEXTURE_FREE_SAFE(inst->depth_double_buffer);
-    GPU_FRAMEBUFFER_FREE_SAFE(inst->double_buffer_depth_fb);
+    DRW_TEXTURE_FREE_SAFE(txl->depth_double_buffer);
+    GPU_FRAMEBUFFER_FREE_SAFE(fbl->double_buffer_depth_fb);
   }
 
   if ((effects->enabled_effects & (EFFECT_TAA | EFFECT_TAA_REPROJECT)) != 0) {
-    SETUP_BUFFER(inst->taa_history, inst->taa_history_fb, inst->taa_history_color_fb);
+    SETUP_BUFFER(txl->taa_history, fbl->taa_history_fb, fbl->taa_history_color_fb);
   }
   else {
-    CLEANUP_BUFFER(inst->taa_history, inst->taa_history_fb, inst->taa_history_color_fb);
+    CLEANUP_BUFFER(txl->taa_history, fbl->taa_history_fb, fbl->taa_history_color_fb);
   }
 }
 
 void EEVEE_effects_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_TextureList *txl = vedata->txl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
   DRWState downsample_write = DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_ALWAYS;
   DRWShadingGroup *grp;
 
@@ -243,25 +248,25 @@ void EEVEE_effects_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
   blender::gpu::Batch *quad = DRW_cache_fullscreen_quad_get();
 
   if (effects->enabled_effects & EFFECT_RADIANCE_BUFFER) {
-    DRW_PASS_CREATE(inst->color_copy_ps, DRW_STATE_WRITE_COLOR);
-    grp = DRW_shgroup_create(EEVEE_shaders_effect_color_copy_sh_get(), inst->color_copy_ps);
+    DRW_PASS_CREATE(psl->color_copy_ps, DRW_STATE_WRITE_COLOR);
+    grp = DRW_shgroup_create(EEVEE_shaders_effect_color_copy_sh_get(), psl->color_copy_ps);
     DRW_shgroup_uniform_texture_ref_ex(
         grp, "source", &e_data.color_src, GPUSamplerState::default_sampler());
     DRW_shgroup_uniform_float(grp, "fireflyFactor", &sldata->common_data.ssr_firefly_fac, 1);
     DRW_shgroup_call_procedural_triangles(grp, nullptr, 1);
 
-    DRW_PASS_CREATE(inst->color_downsample_ps, DRW_STATE_WRITE_COLOR);
-    grp = DRW_shgroup_create(EEVEE_shaders_effect_downsample_sh_get(), inst->color_downsample_ps);
+    DRW_PASS_CREATE(psl->color_downsample_ps, DRW_STATE_WRITE_COLOR);
+    grp = DRW_shgroup_create(EEVEE_shaders_effect_downsample_sh_get(), psl->color_downsample_ps);
     const GPUSamplerState sampler_state = {GPU_SAMPLER_FILTERING_LINEAR};
-    DRW_shgroup_uniform_texture_ex(grp, "source", inst->filtered_radiance, sampler_state);
+    DRW_shgroup_uniform_texture_ex(grp, "source", txl->filtered_radiance, sampler_state);
     DRW_shgroup_uniform_vec2(grp, "texelSize", e_data.texel_size, 1);
     DRW_shgroup_call_procedural_triangles(grp, nullptr, 1);
   }
 
   {
-    DRW_PASS_CREATE(inst->color_downsample_cube_ps, DRW_STATE_WRITE_COLOR);
+    DRW_PASS_CREATE(psl->color_downsample_cube_ps, DRW_STATE_WRITE_COLOR);
     grp = DRW_shgroup_create(EEVEE_shaders_effect_downsample_cube_sh_get(),
-                             inst->color_downsample_cube_ps);
+                             psl->color_downsample_cube_ps);
     DRW_shgroup_uniform_texture_ref(grp, "source", &e_data.color_src);
     DRW_shgroup_uniform_float(grp, "texelSize", e_data.texel_size, 1);
     DRW_shgroup_uniform_int_copy(grp, "Layer", 0);
@@ -270,23 +275,23 @@ void EEVEE_effects_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 
   {
     /* Perform min/max down-sample. */
-    DRW_PASS_CREATE(inst->maxz_downlevel_ps, downsample_write);
-    grp = DRW_shgroup_create(EEVEE_shaders_effect_maxz_downlevel_sh_get(), inst->maxz_downlevel_ps);
+    DRW_PASS_CREATE(psl->maxz_downlevel_ps, downsample_write);
+    grp = DRW_shgroup_create(EEVEE_shaders_effect_maxz_downlevel_sh_get(), psl->maxz_downlevel_ps);
     DRW_shgroup_uniform_texture_ref_ex(
-        grp, "depthBuffer", &inst->maxzbuffer, GPUSamplerState::default_sampler());
+        grp, "depthBuffer", &txl->maxzbuffer, GPUSamplerState::default_sampler());
     DRW_shgroup_uniform_vec2(grp, "texelSize", e_data.texel_size, 1);
     DRW_shgroup_call(grp, quad, nullptr);
 
     /* Copy depth buffer to top level of HiZ */
-    DRW_PASS_CREATE(inst->maxz_copydepth_ps, downsample_write);
-    grp = DRW_shgroup_create(EEVEE_shaders_effect_maxz_copydepth_sh_get(), inst->maxz_copydepth_ps);
+    DRW_PASS_CREATE(psl->maxz_copydepth_ps, downsample_write);
+    grp = DRW_shgroup_create(EEVEE_shaders_effect_maxz_copydepth_sh_get(), psl->maxz_copydepth_ps);
     DRW_shgroup_uniform_texture_ref_ex(
         grp, "depthBuffer", &e_data.depth_src, GPUSamplerState::default_sampler());
     DRW_shgroup_call(grp, quad, nullptr);
 
-    DRW_PASS_CREATE(inst->maxz_copydepth_layer_ps, downsample_write);
+    DRW_PASS_CREATE(psl->maxz_copydepth_layer_ps, downsample_write);
     grp = DRW_shgroup_create(EEVEE_shaders_effect_maxz_copydepth_layer_sh_get(),
-                             inst->maxz_copydepth_layer_ps);
+                             psl->maxz_copydepth_layer_ps);
     DRW_shgroup_uniform_texture_ref_ex(
         grp, "depthBuffer", &e_data.depth_src, GPUSamplerState::default_sampler());
     DRW_shgroup_uniform_int(grp, "depthLayer", &e_data.depth_src_layer, 1);
@@ -297,8 +302,8 @@ void EEVEE_effects_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
     EEVEE_MotionBlurData *mb_data = &effects->motion_blur;
 
     /* This pass compute camera motions to the non moving objects. */
-    DRW_PASS_CREATE(inst->velocity_resolve, DRW_STATE_WRITE_COLOR);
-    grp = DRW_shgroup_create(EEVEE_shaders_velocity_resolve_sh_get(), inst->velocity_resolve);
+    DRW_PASS_CREATE(psl->velocity_resolve, DRW_STATE_WRITE_COLOR);
+    grp = DRW_shgroup_create(EEVEE_shaders_velocity_resolve_sh_get(), psl->velocity_resolve);
     DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", &e_data.depth_src);
     DRW_shgroup_uniform_block(grp, "common_block", sldata->common_ubo);
     DRW_shgroup_uniform_block(grp, "renderpass_block", sldata->renderpass_ubo.combined);
@@ -312,79 +317,80 @@ void EEVEE_effects_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 
 void EEVEE_effects_draw_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_TextureList *txl = vedata->txl;
+  EEVEE_EffectsInfo *effects = vedata->stl->effects;
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
   /**
    * Setup double buffer so we can access last frame as it was before post processes.
    */
   if ((effects->enabled_effects & EFFECT_DOUBLE_BUFFER) != 0) {
-    SETUP_BUFFER(inst->color_double_buffer, inst->double_buffer_fb, inst->double_buffer_color_fb);
+    SETUP_BUFFER(txl->color_double_buffer, fbl->double_buffer_fb, fbl->double_buffer_color_fb);
   }
   else {
-    CLEANUP_BUFFER(inst->color_double_buffer, inst->double_buffer_fb, inst->double_buffer_color_fb);
+    CLEANUP_BUFFER(txl->color_double_buffer, fbl->double_buffer_fb, fbl->double_buffer_color_fb);
   }
 
   /**
    * Ping Pong buffer
    */
   if ((effects->enabled_effects & EFFECT_POST_BUFFER) != 0) {
-    SETUP_BUFFER(inst->color_post, inst->effect_fb, inst->effect_color_fb);
+    SETUP_BUFFER(txl->color_post, fbl->effect_fb, fbl->effect_color_fb);
   }
   else {
-    CLEANUP_BUFFER(inst->color_post, inst->effect_fb, inst->effect_color_fb);
+    CLEANUP_BUFFER(txl->color_post, fbl->effect_fb, fbl->effect_color_fb);
   }
 }
 
 #if 0 /* Not required for now */
 static void min_downsample_cb(void *vedata, int /*level*/)
 {
-  EEVEE_Data *ved = (EEVEE_Data *)vedata;
-  GOOENGINE_Instance *inst = ved->instance;
-  DRW_draw_pass(inst->minz_downlevel_ps);
+  EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
+  DRW_draw_pass(psl->minz_downlevel_ps);
 }
 #endif
 
 static void max_downsample_cb(void *vedata, int level)
 {
-  EEVEE_Data *ved = (EEVEE_Data *)vedata;
-  GOOENGINE_Instance *inst = ved->instance;
+  EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
+  EEVEE_TextureList *txl = ((EEVEE_Data *)vedata)->txl;
   int texture_size[3];
-  GPU_texture_get_mipmap_size(inst->maxzbuffer, level - 1, texture_size);
+  GPU_texture_get_mipmap_size(txl->maxzbuffer, level - 1, texture_size);
   e_data.texel_size[0] = 1.0f / texture_size[0];
   e_data.texel_size[1] = 1.0f / texture_size[1];
-  DRW_draw_pass(inst->maxz_downlevel_ps);
+  DRW_draw_pass(psl->maxz_downlevel_ps);
 }
 
 static void simple_downsample_cube_cb(void *vedata, int level)
 {
-  EEVEE_Data *ved = (EEVEE_Data *)vedata;
-  GOOENGINE_Instance *inst = ved->instance;
+  EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
   e_data.texel_size[0] = float(1 << level) / float(GPU_texture_width(e_data.color_src));
   e_data.texel_size[1] = e_data.texel_size[0];
-  DRW_draw_pass(inst->color_downsample_cube_ps);
+  DRW_draw_pass(psl->color_downsample_cube_ps);
 }
 
 void EEVEE_create_minmax_buffer(EEVEE_Data *vedata, GPUTexture *depth_src, int layer)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+
   e_data.depth_src = depth_src;
   e_data.depth_src_layer = layer;
 
   /* Copy depth buffer to max texture top level */
-  GPU_framebuffer_bind(inst->maxzbuffer_fb);
+  GPU_framebuffer_bind(fbl->maxzbuffer_fb);
   if (layer >= 0) {
-    DRW_draw_pass(inst->maxz_copydepth_layer_ps);
+    DRW_draw_pass(psl->maxz_copydepth_layer_ps);
   }
   else {
-    DRW_draw_pass(inst->maxz_copydepth_ps);
+    DRW_draw_pass(psl->maxz_copydepth_ps);
   }
   /* Create lower levels */
   GPU_framebuffer_recursive_downsample(
-      inst->maxzbuffer_fb, MAX_SCREEN_BUFFERS_LOD_LEVEL, &max_downsample_cb, vedata);
+      fbl->maxzbuffer_fb, MAX_SCREEN_BUFFERS_LOD_LEVEL, &max_downsample_cb, vedata);
 
   /* Restore */
-  GPU_framebuffer_bind(inst->main_fb);
+  GPU_framebuffer_bind(fbl->main_fb);
 
   if (GPU_mip_render_workaround() ||
       GPU_type_matches(GPU_DEVICE_INTEL_UHD, GPU_OS_WIN, GPU_DRIVER_ANY))
@@ -396,85 +402,92 @@ void EEVEE_create_minmax_buffer(EEVEE_Data *vedata, GPUTexture *depth_src, int l
 
 static void downsample_radiance_cb(void *vedata, int level)
 {
-  EEVEE_Data *ved = (EEVEE_Data *)vedata;
-  GOOENGINE_Instance *inst = ved->instance;
+  EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
+  EEVEE_TextureList *txl = ((EEVEE_Data *)vedata)->txl;
   int texture_size[3];
-  GPU_texture_get_mipmap_size(inst->filtered_radiance, level - 1, texture_size);
+  GPU_texture_get_mipmap_size(txl->filtered_radiance, level - 1, texture_size);
   e_data.texel_size[0] = 1.0f / texture_size[0];
   e_data.texel_size[1] = 1.0f / texture_size[1];
-  DRW_draw_pass(inst->color_downsample_ps);
+  DRW_draw_pass(psl->color_downsample_ps);
 }
 
 void EEVEE_effects_downsample_radiance_buffer(EEVEE_Data *vedata, GPUTexture *texture_src)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
 
   e_data.color_src = texture_src;
 
-  GPU_framebuffer_bind(inst->radiance_filtered_fb);
-  DRW_draw_pass(inst->color_copy_ps);
+  GPU_framebuffer_bind(fbl->radiance_filtered_fb);
+  DRW_draw_pass(psl->color_copy_ps);
 
   GPU_framebuffer_recursive_downsample(
-      inst->radiance_filtered_fb, MAX_SCREEN_BUFFERS_LOD_LEVEL, &downsample_radiance_cb, vedata);
+      fbl->radiance_filtered_fb, MAX_SCREEN_BUFFERS_LOD_LEVEL, &downsample_radiance_cb, vedata);
 }
 
 void EEVEE_effects_radiance_copy(EEVEE_ViewLayerData */*sldata*/, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
 
   /* Copy color buffer to texture */
   if ((effects->enabled_effects & EFFECT_REFRACT) != 0) {
-    GPU_framebuffer_bind(inst->radiance_filtered_fb);
-    DRW_draw_pass(inst->color_copy_ps);
+    GPU_framebuffer_bind(fbl->radiance_filtered_fb);
+    DRW_draw_pass(psl->color_copy_ps);
 
     /* Restore */
-    GPU_framebuffer_bind(inst->main_fb);
+    GPU_framebuffer_bind(fbl->main_fb);
   }
 }
 
 void EEVEE_downsample_cube_buffer(EEVEE_Data *vedata, GPUTexture *texture_src, int level)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
   e_data.color_src = texture_src;
 
   /* Create lower levels */
-  GPU_framebuffer_texture_attach(inst->downsample_fb, texture_src, 0, 0);
+  GPU_framebuffer_texture_attach(fbl->downsample_fb, texture_src, 0, 0);
   GPU_framebuffer_recursive_downsample(
-      inst->downsample_fb, level, &simple_downsample_cube_cb, vedata);
-  GPU_framebuffer_texture_detach(inst->downsample_fb, texture_src);
+      fbl->downsample_fb, level, &simple_downsample_cube_cb, vedata);
+  GPU_framebuffer_texture_detach(fbl->downsample_fb, texture_src);
 }
 
 static void EEVEE_velocity_resolve(EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
 
   if ((effects->enabled_effects & EFFECT_VELOCITY_BUFFER) != 0) {
     DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
     e_data.depth_src = dtxl->depth;
 
-    GPU_framebuffer_bind(inst->velocity_resolve_fb);
-    DRW_draw_pass(inst->velocity_resolve);
+    GPU_framebuffer_bind(fbl->velocity_resolve_fb);
+    DRW_draw_pass(psl->velocity_resolve);
 
-    if (inst->velocity_object) {
-      GPU_framebuffer_bind(inst->velocity_fb);
-      DRW_draw_pass(inst->velocity_object);
+    if (psl->velocity_object) {
+      GPU_framebuffer_bind(fbl->velocity_fb);
+      DRW_draw_pass(psl->velocity_object);
     }
   }
 }
 
 void EEVEE_draw_effects(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_TextureList *txl = vedata->txl;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
 
   /* only once per frame after the first post process */
   effects->swap_double_buffer = ((effects->enabled_effects & EFFECT_DOUBLE_BUFFER) != 0);
 
   /* Init pointers */
-  effects->source_buffer = inst->color;           /* latest updated texture */
-  effects->target_buffer = inst->effect_color_fb; /* next target to render to */
+  effects->source_buffer = txl->color;           /* latest updated texture */
+  effects->target_buffer = fbl->effect_color_fb; /* next target to render to */
 
   /* Post process stack (order matters) */
   EEVEE_velocity_resolve(vedata);
@@ -496,16 +509,16 @@ void EEVEE_draw_effects(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 
   /* Save the final texture and frame-buffer for final transformation or read. */
   effects->final_tx = effects->source_buffer;
-  effects->final_fb = (effects->target_buffer != inst->main_color_fb) ? inst->main_fb :
-                                                                       inst->effect_fb;
-  if ((effects->enabled_effects & EFFECT_TAA) && (effects->source_buffer == inst->taa_history)) {
-    effects->final_fb = inst->taa_history_fb;
+  effects->final_fb = (effects->target_buffer != fbl->main_color_fb) ? fbl->main_fb :
+                                                                       fbl->effect_fb;
+  if ((effects->enabled_effects & EFFECT_TAA) && (effects->source_buffer == txl->taa_history)) {
+    effects->final_fb = fbl->taa_history_fb;
   }
 
   /* If no post processes is enabled, buffers are still not swapped, do it now. */
   SWAP_DOUBLE_BUFFERS();
 
-  if (!inst->g_data->valid_double_buffer &&
+  if (!stl->g_data->valid_double_buffer &&
       ((effects->enabled_effects & EFFECT_DOUBLE_BUFFER) != 0) &&
       (DRW_state_is_image_render() == false))
   {
@@ -519,7 +532,7 @@ void EEVEE_draw_effects(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 
   /* Update double buffer status if render mode. */
   if (DRW_state_is_image_render()) {
-    inst->g_data->valid_double_buffer = (inst->color_double_buffer != nullptr);
-    inst->g_data->valid_taa_history = (inst->taa_history != nullptr);
+    stl->g_data->valid_double_buffer = (txl->color_double_buffer != nullptr);
+    stl->g_data->valid_taa_history = (txl->taa_history != nullptr);
   }
 }

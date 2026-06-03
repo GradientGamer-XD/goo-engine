@@ -32,26 +32,27 @@
 
 static void eevee_lookdev_lightcache_delete(EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_PrivateData *g_data = stl->g_data;
+  EEVEE_TextureList *txl = vedata->txl;
 
-  MEM_SAFE_FREE(inst->lookdev_lightcache);
-  MEM_SAFE_FREE(inst->lookdev_grid_data);
-  MEM_SAFE_FREE(inst->lookdev_cube_data);
-  DRW_TEXTURE_FREE_SAFE(inst->lookdev_grid_tx);
-  DRW_TEXTURE_FREE_SAFE(inst->lookdev_cube_tx);
+  MEM_SAFE_FREE(stl->lookdev_lightcache);
+  MEM_SAFE_FREE(stl->lookdev_grid_data);
+  MEM_SAFE_FREE(stl->lookdev_cube_data);
+  DRW_TEXTURE_FREE_SAFE(txl->lookdev_grid_tx);
+  DRW_TEXTURE_FREE_SAFE(txl->lookdev_cube_tx);
   g_data->studiolight_index = -1;
   g_data->studiolight_rot_z = 0.0f;
 }
 
 static void eevee_lookdev_hdri_preview_init(EEVEE_Data *vedata, EEVEE_ViewLayerData *sldata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_PassList *psl = vedata->psl;
   const DRWContextState *draw_ctx = DRW_context_state_get();
   Scene *scene = draw_ctx->scene;
   DRWShadingGroup *grp;
 
-  const EEVEE_EffectsInfo *effects = inst->effects;
+  const EEVEE_EffectsInfo *effects = vedata->stl->effects;
   blender::gpu::Batch *sphere = DRW_cache_sphere_get(effects->sphere_lod);
   int mat_options = VAR_MAT_MESH | VAR_MAT_LOOKDEV;
 
@@ -63,8 +64,8 @@ static void eevee_lookdev_hdri_preview_init(EEVEE_Data *vedata, EEVEE_ViewLayerD
     GPUMaterial *gpumat = EEVEE_material_get(vedata, scene, ma, nullptr, mat_options);
     GPUShader *sh = GPU_material_get_shader(gpumat);
 
-    DRW_PASS_CREATE(inst->lookdev_diffuse_pass, state);
-    grp = DRW_shgroup_create(sh, inst->lookdev_diffuse_pass);
+    DRW_PASS_CREATE(psl->lookdev_diffuse_pass, state);
+    grp = DRW_shgroup_create(sh, psl->lookdev_diffuse_pass);
     EEVEE_material_bind_resources(
         grp, gpumat, sldata, vedata, nullptr, nullptr, -1.0f, false, false);
     DRW_shgroup_add_material_resources(grp, gpumat);
@@ -75,8 +76,8 @@ static void eevee_lookdev_hdri_preview_init(EEVEE_Data *vedata, EEVEE_ViewLayerD
     GPUMaterial *gpumat = EEVEE_material_get(vedata, scene, ma, nullptr, mat_options);
     GPUShader *sh = GPU_material_get_shader(gpumat);
 
-    DRW_PASS_CREATE(inst->lookdev_glossy_pass, state);
-    grp = DRW_shgroup_create(sh, inst->lookdev_glossy_pass);
+    DRW_PASS_CREATE(psl->lookdev_glossy_pass, state);
+    grp = DRW_shgroup_create(sh, psl->lookdev_glossy_pass);
     EEVEE_material_bind_resources(
         grp, gpumat, sldata, vedata, nullptr, nullptr, -1.0f, false, false);
     DRW_shgroup_add_material_resources(grp, gpumat);
@@ -86,8 +87,8 @@ static void eevee_lookdev_hdri_preview_init(EEVEE_Data *vedata, EEVEE_ViewLayerD
 
 void EEVEE_lookdev_init(EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
   const DRWContextState *draw_ctx = DRW_context_state_get();
   /* The view will be nullptr when rendering previews. */
   const View3D *v3d = draw_ctx->v3d;
@@ -134,7 +135,7 @@ void EEVEE_lookdev_init(EEVEE_Data *vedata)
       effects->sphere_size = sphere_size;
       effects->anchor[0] = rect->xmax;
       effects->anchor[1] = rect->ymin;
-      inst->g_data->valid_double_buffer = false;
+      stl->g_data->valid_double_buffer = false;
       EEVEE_temporal_sampling_reset(vedata);
     }
   }
@@ -146,9 +147,10 @@ void EEVEE_lookdev_cache_init(EEVEE_Data *vedata,
                               EEVEE_LightProbesInfo *pinfo,
                               DRWShadingGroup **r_shgrp)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_TextureList *txl = vedata->txl;
+  EEVEE_EffectsInfo *effects = stl->effects;
+  EEVEE_PrivateData *g_data = stl->g_data;
   const DRWContextState *draw_ctx = DRW_context_state_get();
   /* The view will be nullptr when rendering previews. */
   const View3D *v3d = draw_ctx->v3d;
@@ -177,39 +179,39 @@ void EEVEE_lookdev_cache_init(EEVEE_Data *vedata,
     int cube_res = scene_eval->eevee.gi_cubemap_resolution;
 
     /* If one of the component is missing we start from scratch. */
-    if ((inst->lookdev_grid_data == nullptr) || (inst->lookdev_cube_data == nullptr) ||
-        (inst->lookdev_grid_tx == nullptr) || (inst->lookdev_cube_tx == nullptr) ||
+    if ((stl->lookdev_grid_data == nullptr) || (stl->lookdev_cube_data == nullptr) ||
+        (txl->lookdev_grid_tx == nullptr) || (txl->lookdev_cube_tx == nullptr) ||
         (g_data->light_cache && g_data->light_cache->ref_res != cube_res))
     {
       eevee_lookdev_lightcache_delete(vedata);
     }
 
-    if (inst->lookdev_lightcache == nullptr) {
+    if (stl->lookdev_lightcache == nullptr) {
 #if defined(IRRADIANCE_SH_L2)
       int grid_res = 4;
 #elif defined(IRRADIANCE_HL2)
       int grid_res = 4;
 #endif
 
-      inst->lookdev_lightcache = EEVEE_lightcache_create(
+      stl->lookdev_lightcache = EEVEE_lightcache_create(
           1, 1, cube_res, 8, blender::int3{grid_res, grid_res, 1});
 
       /* XXX: Fix memleak. TODO: find out why. */
-      MEM_SAFE_FREE(inst->lookdev_cube_mips);
+      MEM_SAFE_FREE(stl->lookdev_cube_mips);
 
       /* We do this to use a special light cache for lookdev.
        * This light-cache needs to be per viewport. But we need to
        * have correct freeing when the viewport is closed. So we
        * need to reference all textures to the txl and the memblocks
        * to the stl. */
-      inst->lookdev_grid_data = inst->lookdev_lightcache->grid_data;
-      inst->lookdev_cube_data = inst->lookdev_lightcache->cube_data;
-      inst->lookdev_cube_mips = inst->lookdev_lightcache->cube_mips;
-      inst->lookdev_grid_tx = inst->lookdev_lightcache->grid_tx.tex;
-      inst->lookdev_cube_tx = inst->lookdev_lightcache->cube_tx.tex;
+      stl->lookdev_grid_data = stl->lookdev_lightcache->grid_data;
+      stl->lookdev_cube_data = stl->lookdev_lightcache->cube_data;
+      stl->lookdev_cube_mips = stl->lookdev_lightcache->cube_mips;
+      txl->lookdev_grid_tx = stl->lookdev_lightcache->grid_tx.tex;
+      txl->lookdev_cube_tx = stl->lookdev_lightcache->cube_tx.tex;
     }
 
-    g_data->light_cache = inst->lookdev_lightcache;
+    g_data->light_cache = stl->lookdev_lightcache;
 
     DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
     axis_angle_to_mat3_single(g_data->studiolight_matrix, 'Z', shading->studiolight_rot_z);
@@ -246,7 +248,7 @@ void EEVEE_lookdev_cache_init(EEVEE_Data *vedata,
       float studiolight_blur = powf(shading->studiolight_blur, 2.5f);
       DRW_shgroup_uniform_float_copy(grp, "backgroundAlpha", background_alpha);
       DRW_shgroup_uniform_float_copy(grp, "studioLightBlur", studiolight_blur);
-      DRW_shgroup_uniform_texture(grp, "probeCubes", inst->lookdev_cube_tx);
+      DRW_shgroup_uniform_texture(grp, "probeCubes", txl->lookdev_cube_tx);
       DRW_shgroup_uniform_float_copy(grp, "studioLightIntensity", 1.0f);
     }
 
@@ -263,7 +265,7 @@ void EEVEE_lookdev_cache_init(EEVEE_Data *vedata,
         g_data->studiolight_glossy_clamp != scene->eevee.gi_glossy_clamp ||
         g_data->studiolight_filter_quality != scene->eevee.gi_filter_quality)
     {
-      inst->lookdev_lightcache->flag |= LIGHTCACHE_UPDATE_WORLD;
+      stl->lookdev_lightcache->flag |= LIGHTCACHE_UPDATE_WORLD;
       g_data->studiolight_index = sl->index;
       copy_m3_m3(g_data->studiolight_matrix, studiolight_matrix);
       g_data->studiolight_rot_z = shading->studiolight_rot_z;
@@ -294,13 +296,15 @@ static void eevee_lookdev_apply_taa(const EEVEE_EffectsInfo *effects,
 
 void EEVEE_lookdev_draw(EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
   EEVEE_ViewLayerData *sldata = EEVEE_view_layer_data_ensure();
 
   const DRWContextState *draw_ctx = DRW_context_state_get();
 
-  if (inst->lookdev_diffuse_pass && eevee_hdri_preview_overlay_enabled(draw_ctx->v3d)) {
+  if (psl->lookdev_diffuse_pass && eevee_hdri_preview_overlay_enabled(draw_ctx->v3d)) {
     /* Config renderer. */
     EEVEE_CommonUniformBuffer *common = &sldata->common_data;
     common->la_num_light = 0;
@@ -337,8 +341,8 @@ void EEVEE_lookdev_draw(EEVEE_Data *vedata)
     DRW_view_set_active(effects->lookdev_view);
 
     /* Find the right frame-buffers to render to. */
-    GPUFrameBuffer *fb = (effects->target_buffer == inst->effect_color_fb) ? inst->main_fb :
-                                                                            inst->effect_fb;
+    GPUFrameBuffer *fb = (effects->target_buffer == fbl->effect_color_fb) ? fbl->main_fb :
+                                                                            fbl->effect_fb;
 
     GPU_framebuffer_bind(fb);
 
@@ -352,7 +356,7 @@ void EEVEE_lookdev_draw(EEVEE_Data *vedata)
                                  effects->sphere_size,
                                  effects->sphere_size);
 
-    DRW_draw_pass(inst->lookdev_diffuse_pass);
+    DRW_draw_pass(psl->lookdev_diffuse_pass);
 
     offset[0] = (effects->sphere_size + sphere_margin) +
                 (sphere_margin + effects->sphere_size + sphere_margin);
@@ -362,7 +366,7 @@ void EEVEE_lookdev_draw(EEVEE_Data *vedata)
                                  effects->sphere_size,
                                  effects->sphere_size);
 
-    DRW_draw_pass(inst->lookdev_glossy_pass);
+    DRW_draw_pass(psl->lookdev_glossy_pass);
 
     GPU_framebuffer_viewport_reset(fb);
 

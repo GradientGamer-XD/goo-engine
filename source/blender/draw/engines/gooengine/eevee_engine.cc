@@ -35,130 +35,9 @@
 static void eevee_engine_init(void *ved)
 {
   EEVEE_Data *vedata = (EEVEE_Data *)ved;
-  if (vedata->instance == nullptr) {
-    vedata->instance = new GOOENGINE_Instance();
-  }
-  else {
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->gtao_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->gtao_debug_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->downsample_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->maxzbuffer_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->bloom_blit_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(*vedata->instance->bloom_down_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(*vedata->instance->bloom_accum_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->bloom_pass_accum_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->cryptomatte_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->shadow_accum_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->ssr_accum_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->sss_blur_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->sss_blit_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->sss_resolve_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->sss_clear_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->sss_translucency_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->sss_accum_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_setup_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_flatten_tiles_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_dilate_tiles_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_downsample_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_reduce_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_reduce_copy_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_bokeh_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_gather_fg_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_filter_fg_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_gather_fg_holefill_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_gather_bg_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_filter_bg_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_scatter_fg_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->dof_scatter_bg_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->volumetric_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->volumetric_scat_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->volumetric_integ_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->volumetric_accum_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->screen_tracing_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->mist_accum_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->material_accum_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->renderpass_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->ao_accum_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->velocity_resolve_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->velocity_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(*vedata->instance->velocity_tiles_fb);
-
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->update_noise_fb);
-
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->planarref_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->planar_downsample_fb);
-
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->main_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->main_color_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->effect_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->effect_color_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->radiance_filtered_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->double_buffer_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->double_buffer_color_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->double_buffer_depth_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->transparent_rpass_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->transparent_rpass_accum_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->taa_history_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(vedata->instance->taa_history_color_fb);
-
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->color_post);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->mist_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->ao_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->sss_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->env_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->diff_color_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->diff_light_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->spec_color_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->spec_light_accum);
-    GPU_TEXTURE_FREE_SAFE(*vedata->instance->aov_surface_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->emit_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->bloom_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->ssr_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->shadow_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->transparent_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->transparent_depth_tmp);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->transparent_color_tmp);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->cryptomatte);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->taa_history);
-
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->dof_reduced_color);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->dof_reduced_coc);
-
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->volume_prop_scattering);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->volume_prop_extinction);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->volume_prop_emission);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->volume_prop_phase);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->volume_scatter);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->volume_transmit);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->volume_scatter_history);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->volume_transmit_history);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->volume_scatter_accum);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->volume_transmittance_accum);
-
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->lookdev_grid_tx);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->lookdev_cube_tx);
-
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->planar_pool);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->planar_depth);
-
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->maxzbuffer);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->filtered_radiance);
-
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->renderpass);
-
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->color);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->color_double_buffer);
-    GPU_TEXTURE_FREE_SAFE(vedata->instance->depth_double_buffer);
-
-    MEM_SAFE_FREE(vedata->instance->effects);
-    MEM_SAFE_FREE(vedata->instance->g_data);
-    MEM_SAFE_FREE(vedata->instance->lookdev_lightcache);
-    MEM_SAFE_FREE(vedata->instance->lookdev_cube_data);
-    MEM_SAFE_FREE(vedata->instance->lookdev_grid_data);
-    MEM_SAFE_FREE(vedata->instance->lookdev_cube_mips);
-  }
-  GOOENGINE_Instance *inst = vedata->instance;
-
+  EEVEE_TextureList *txl = vedata->txl;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
   EEVEE_ViewLayerData *sldata = EEVEE_view_layer_data_ensure();
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
@@ -167,40 +46,40 @@ static void eevee_engine_init(void *ved)
   RegionView3D *rv3d = draw_ctx->rv3d;
   Object *camera = (rv3d->persp == RV3D_CAMOB) ? v3d->camera : nullptr;
 
-  if (!inst->g_data) {
+  if (!stl->g_data) {
     /* Alloc transient pointers */
-    inst->g_data = static_cast<EEVEE_PrivateData *>(MEM_callocN(sizeof(*inst->g_data), __func__));
+    stl->g_data = static_cast<EEVEE_PrivateData *>(MEM_callocN(sizeof(*stl->g_data), __func__));
   }
-  inst->g_data->use_color_render_settings = USE_SCENE_LIGHT(v3d) ||
+  stl->g_data->use_color_render_settings = USE_SCENE_LIGHT(v3d) ||
                                            !LOOK_DEV_STUDIO_LIGHT_ENABLED(v3d);
-  inst->g_data->background_alpha = DRW_state_draw_background() ? 1.0f : 0.0f;
-  inst->g_data->valid_double_buffer = (inst->color_double_buffer != nullptr);
-  inst->g_data->valid_taa_history = (inst->taa_history != nullptr);
-  inst->g_data->queued_shaders_count = 0;
-  inst->g_data->queued_optimise_shaders_count = 0;
-  inst->g_data->render_timesteps = 1;
-  inst->g_data->disable_ligthprobes = v3d &&
+  stl->g_data->background_alpha = DRW_state_draw_background() ? 1.0f : 0.0f;
+  stl->g_data->valid_double_buffer = (txl->color_double_buffer != nullptr);
+  stl->g_data->valid_taa_history = (txl->taa_history != nullptr);
+  stl->g_data->queued_shaders_count = 0;
+  stl->g_data->queued_optimise_shaders_count = 0;
+  stl->g_data->render_timesteps = 1;
+  stl->g_data->disable_ligthprobes = v3d &&
                                      (v3d->object_type_exclude_viewport & (1 << OB_LIGHTPROBE));
 
   /* Main Buffer */
-  DRW_texture_ensure_fullscreen_2d(&inst->color, GPU_RGBA16F, DRW_TEX_FILTER);
+  DRW_texture_ensure_fullscreen_2d(&txl->color, GPU_RGBA16F, DRW_TEX_FILTER);
 
-  GPU_framebuffer_ensure_config(&inst->main_fb,
+  GPU_framebuffer_ensure_config(&fbl->main_fb,
                                 {GPU_ATTACHMENT_TEXTURE(dtxl->depth),
-                                 GPU_ATTACHMENT_TEXTURE(inst->color),
+                                 GPU_ATTACHMENT_TEXTURE(txl->color),
                                  GPU_ATTACHMENT_LEAVE,
                                  GPU_ATTACHMENT_LEAVE,
                                  GPU_ATTACHMENT_LEAVE,
                                  GPU_ATTACHMENT_LEAVE});
 
-  GPU_framebuffer_ensure_config(&inst->main_color_fb,
-                                {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(inst->color)});
+  GPU_framebuffer_ensure_config(&fbl->main_color_fb,
+                                {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(txl->color)});
 
   /* `EEVEE_renderpasses_init` will set the active render passes used by `EEVEE_effects_init`.
-  * `EEVEE_effects_init` needs to go second for TAA. */
+   * `EEVEE_effects_init` needs to go second for TAA. */
   EEVEE_renderpasses_init(vedata);
   EEVEE_effects_init(sldata, vedata, camera, false);
-  EEVEE_materials_init(sldata, vedata);
+  EEVEE_materials_init(sldata, vedata, stl, fbl);
   EEVEE_shadows_init(sldata);
   EEVEE_lightprobes_init(sldata, vedata);
 }
@@ -272,9 +151,9 @@ void EEVEE_cache_populate(void *vedata, Object *ob)
 static void eevee_cache_finish(void *vedata)
 {
   EEVEE_Data *ved = (EEVEE_Data *)vedata;
-  GOOENGINE_Instance *inst = ved->instance;
   EEVEE_ViewLayerData *sldata = EEVEE_view_layer_data_ensure();
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_StorageList *stl = ved->stl;
+  EEVEE_PrivateData *g_data = stl->g_data;
   const DRWContextState *draw_ctx = DRW_context_state_get();
   const Scene *scene_eval = DEG_get_evaluated_scene(draw_ctx->depsgraph);
 
@@ -327,8 +206,9 @@ static void eevee_cache_finish(void *vedata)
  * to reduce the fill-rate. */
 static void eevee_draw_scene(void *vedata)
 {
-  EEVEE_Data *ved = (EEVEE_Data *)vedata;
-  GOOENGINE_Instance *inst = ved->instance;
+  EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
+  EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
+  EEVEE_FramebufferList *fbl = ((EEVEE_Data *)vedata)->fbl;
   EEVEE_ViewLayerData *sldata = EEVEE_view_layer_data_ensure();
 
   /* Default framebuffer and texture */
@@ -336,7 +216,7 @@ static void eevee_draw_scene(void *vedata)
   DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
 
   /* Sort transparents before the loop. */
-  DRW_pass_sort_shgroup_z(inst->transparent_pass);
+  DRW_pass_sort_shgroup_z(psl->transparent_pass);
 
   /* Number of iteration: Use viewport taa_samples when using viewport rendering */
   int loop_len = 1;
@@ -346,7 +226,7 @@ static void eevee_draw_scene(void *vedata)
     loop_len = std::max(1, scene->eevee.taa_samples);
   }
 
-  if (inst->effects->bypass_drawing) {
+  if (stl->effects->bypass_drawing) {
     loop_len = 0;
   }
 
@@ -358,41 +238,41 @@ static void eevee_draw_scene(void *vedata)
     double offset[3] = {0.0, 0.0, 0.0};
     double r[3];
 
-    bool taa_use_reprojection = (inst->effects->enabled_effects & EFFECT_TAA_REPROJECT) != 0;
+    bool taa_use_reprojection = (stl->effects->enabled_effects & EFFECT_TAA_REPROJECT) != 0;
 
     if (DRW_state_is_image_render() || taa_use_reprojection ||
-        ((inst->effects->enabled_effects & EFFECT_TAA) != 0))
+        ((stl->effects->enabled_effects & EFFECT_TAA) != 0))
     {
-      int samp = taa_use_reprojection ? inst->effects->taa_reproject_sample + 1 :
-                                        inst->effects->taa_current_sample;
+      int samp = taa_use_reprojection ? stl->effects->taa_reproject_sample + 1 :
+                                        stl->effects->taa_current_sample;
       BLI_halton_3d(primes, offset, samp, r);
-      EEVEE_update_noise(ved, r);
+      EEVEE_update_noise(psl, fbl, r);
       EEVEE_volumes_set_jitter(sldata, samp - 1);
-      EEVEE_materials_init(sldata, static_cast<EEVEE_Data *>(vedata));
+      EEVEE_materials_init(sldata, static_cast<EEVEE_Data *>(vedata), stl, fbl);
     }
     /* Copy previous persmat to UBO data */
-    copy_m4_m4(sldata->common_data.prev_persmat, inst->effects->prev_persmat);
+    copy_m4_m4(sldata->common_data.prev_persmat, stl->effects->prev_persmat);
 
     /* Refresh Probes
      * Shadows needs to be updated for correct probes */
     EEVEE_shadows_update(sldata, static_cast<EEVEE_Data *>(vedata));
     EEVEE_lightprobes_refresh(sldata, static_cast<EEVEE_Data *>(vedata));
     EEVEE_lightprobes_refresh_planar(sldata, static_cast<EEVEE_Data *>(vedata));
-
+  
     /* Refresh shadows */
-    EEVEE_shadows_draw(sldata, static_cast<EEVEE_Data *>(vedata), inst->effects->taa_view);
+    EEVEE_shadows_draw(sldata, static_cast<EEVEE_Data *>(vedata), stl->effects->taa_view);
 
-    if (((inst->effects->enabled_effects & EFFECT_TAA) != 0) &&
-        (inst->effects->taa_current_sample > 1) && !DRW_state_is_image_render() &&
+    if (((stl->effects->enabled_effects & EFFECT_TAA) != 0) &&
+        (stl->effects->taa_current_sample > 1) && !DRW_state_is_image_render() &&
         !taa_use_reprojection)
     {
-      DRW_view_set_active(inst->effects->taa_view);
+      DRW_view_set_active(stl->effects->taa_view);
     }
     /* when doing viewport rendering the overrides needs to be recalculated for
      * every loop as this normally happens once inside
      * `EEVEE_temporal_sampling_init` */
-    else if (((inst->effects->enabled_effects & EFFECT_TAA) != 0) &&
-             (inst->effects->taa_current_sample > 1) && DRW_state_is_image_render())
+    else if (((stl->effects->enabled_effects & EFFECT_TAA) != 0) &&
+             (stl->effects->taa_current_sample > 1) && DRW_state_is_image_render())
     {
       EEVEE_temporal_sampling_update_matrices(static_cast<EEVEE_Data *>(vedata));
     }
@@ -400,20 +280,20 @@ static void eevee_draw_scene(void *vedata)
     /* Set ray type. */
     sldata->common_data.ray_type = EEVEE_RAY_CAMERA;
     sldata->common_data.ray_depth = 0.0f;
-    if (inst->g_data->disable_ligthprobes) {
+    if (stl->g_data->disable_ligthprobes) {
       sldata->common_data.prb_num_render_cube = 1;
       sldata->common_data.prb_num_render_grid = 1;
     }
     GPU_uniformbuf_update(sldata->common_ubo, &sldata->common_data);
 
-    GPU_framebuffer_bind(inst->main_fb);
+    GPU_framebuffer_bind(fbl->main_fb);
     eGPUFrameBufferBits clear_bits = GPU_DEPTH_BIT;
     SET_FLAG_FROM_TEST(clear_bits, !DRW_state_draw_background(), GPU_COLOR_BIT);
-    SET_FLAG_FROM_TEST(clear_bits, (inst->effects->enabled_effects & EFFECT_SSS), GPU_STENCIL_BIT);
-    GPU_framebuffer_clear(inst->main_fb, clear_bits, clear_col, clear_depth, clear_stencil);
+    SET_FLAG_FROM_TEST(clear_bits, (stl->effects->enabled_effects & EFFECT_SSS), GPU_STENCIL_BIT);
+    GPU_framebuffer_clear(fbl->main_fb, clear_bits, clear_col, clear_depth, clear_stencil);
 
     /* Depth pre-pass. */
-    DRW_draw_pass(inst->depth_ps);
+    DRW_draw_pass(psl->depth_ps);
 
     /* Create minmax texture */
     EEVEE_create_minmax_buffer(static_cast<EEVEE_Data *>(vedata), dtxl->depth, -1);
@@ -423,23 +303,23 @@ static void eevee_draw_scene(void *vedata)
 
     /* Shading pass */
     if (DRW_state_draw_background()) {
-      DRW_draw_pass(inst->background_ps);
+      DRW_draw_pass(psl->background_ps);
     }
-    DRW_draw_pass(inst->material_ps);
+    DRW_draw_pass(psl->material_ps);
     EEVEE_subsurface_data_render(sldata, static_cast<EEVEE_Data *>(vedata));
 
     /* Effects pre-transparency */
     EEVEE_subsurface_compute(sldata, static_cast<EEVEE_Data *>(vedata));
     EEVEE_reflection_compute(sldata, static_cast<EEVEE_Data *>(vedata));
     EEVEE_occlusion_draw_debug(sldata, static_cast<EEVEE_Data *>(vedata));
-    if (inst->probe_display) {
-      DRW_draw_pass(inst->probe_display);
+    if (psl->probe_display) {
+      DRW_draw_pass(psl->probe_display);
     }
     EEVEE_refraction_compute(sldata, static_cast<EEVEE_Data *>(vedata));
 
     /* Opaque refraction */
-    DRW_draw_pass(inst->depth_refract_ps);
-    DRW_draw_pass(inst->material_refract_ps);
+    DRW_draw_pass(psl->depth_refract_ps);
+    DRW_draw_pass(psl->material_refract_ps);
 
     /* Streamlined version of EEVEE_refraction_compute to just copy the colour buffer */
     EEVEE_effects_radiance_copy(sldata, static_cast<EEVEE_Data *>(vedata));
@@ -454,26 +334,26 @@ static void eevee_draw_scene(void *vedata)
     EEVEE_material_transparent_output_accumulate(static_cast<EEVEE_Data *>(vedata));
     /* TODO(@fclem): should be its own Frame-buffer.
      * This is needed because dual-source blending only works with 1 color buffer. */
-    GPU_framebuffer_texture_attach(inst->main_color_fb, dtxl->depth, 0, 0);
-    GPU_framebuffer_bind(inst->main_color_fb);
-    DRW_draw_pass(inst->transparent_pass);
-    GPU_framebuffer_bind(inst->main_fb);
-    GPU_framebuffer_texture_detach(inst->main_color_fb, dtxl->depth);
+    GPU_framebuffer_texture_attach(fbl->main_color_fb, dtxl->depth, 0, 0);
+    GPU_framebuffer_bind(fbl->main_color_fb);
+    DRW_draw_pass(psl->transparent_pass);
+    GPU_framebuffer_bind(fbl->main_fb);
+    GPU_framebuffer_texture_detach(fbl->main_color_fb, dtxl->depth);
 
     /* Post Process */
     EEVEE_draw_effects(sldata, static_cast<EEVEE_Data *>(vedata));
 
     DRW_view_set_active(nullptr);
 
-    if (DRW_state_is_image_render() && (inst->effects->enabled_effects & EFFECT_SSR) &&
-        !inst->effects->ssr_was_valid_double_buffer)
+    if (DRW_state_is_image_render() && (stl->effects->enabled_effects & EFFECT_SSR) &&
+        !stl->effects->ssr_was_valid_double_buffer)
     {
       /* SSR needs one iteration to start properly. */
       loop_len++;
       /* Reset sampling (and accumulation) after the first sample to avoid
        * washed out first bounce for SSR. */
       EEVEE_temporal_sampling_reset(static_cast<EEVEE_Data *>(vedata));
-      inst->effects->ssr_was_valid_double_buffer = inst->g_data->valid_double_buffer;
+      stl->effects->ssr_was_valid_double_buffer = stl->g_data->valid_double_buffer;
     }
 
     /* Perform render step between samples to allow flushing of freed temporary GPUBackend
@@ -487,35 +367,32 @@ static void eevee_draw_scene(void *vedata)
     }
   }
 
-  if ((inst->g_data->render_passes & EEVEE_RENDER_PASS_COMBINED) != 0) {
+  if ((stl->g_data->render_passes & EEVEE_RENDER_PASS_COMBINED) != 0) {
     /* Transfer result to default framebuffer. */
     GPU_framebuffer_bind(dfbl->default_fb);
-    DRW_transform_none(inst->effects->final_tx);
+    DRW_transform_none(stl->effects->final_tx);
   }
   else {
     EEVEE_renderpasses_draw(sldata, static_cast<EEVEE_Data *>(vedata));
   }
 
-  if (inst->effects->bypass_drawing) {
+  if (stl->effects->bypass_drawing) {
     /* Restore the depth from sample 1. */
-    GPU_framebuffer_blit(inst->double_buffer_depth_fb, 0, dfbl->default_fb, 0, GPU_DEPTH_BIT);
+    GPU_framebuffer_blit(fbl->double_buffer_depth_fb, 0, dfbl->default_fb, 0, GPU_DEPTH_BIT);
   }
 
   EEVEE_renderpasses_draw_debug(static_cast<EEVEE_Data *>(vedata));
 
-  inst->g_data->view_updated = false;
+  stl->g_data->view_updated = false;
 
   DRW_view_set_active(nullptr);
 }
 
 static void eevee_view_update(void *vedata)
 {
-  EEVEE_Data *ved = (EEVEE_Data *)vedata;
-  GOOENGINE_Instance *inst = ved->instance;
-  if (inst) {
-    if (inst->g_data) {
-      inst->g_data->view_updated = true;
-    }
+  EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
+  if (stl && stl->g_data) {
+    stl->g_data->view_updated = true;
   }
 }
 
@@ -541,11 +418,10 @@ static void eevee_id_object_update(void * /*vedata*/, Object *object)
 
 static void eevee_id_world_update(void *vedata, World *wo)
 {
-  EEVEE_Data *ved = (EEVEE_Data *)vedata;
-  GOOENGINE_Instance *inst = ved->instance;
-  LightCache *lcache = inst->g_data->light_cache;
+  EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
+  LightCache *lcache = stl->g_data->light_cache;
 
-  if (ELEM(lcache, nullptr, inst->lookdev_lightcache)) {
+  if (ELEM(lcache, nullptr, stl->lookdev_lightcache)) {
     /* Avoid Lookdev viewport clearing the update flag (see #67741). */
     return;
   }
@@ -578,104 +454,8 @@ void eevee_id_update(void *vedata, ID *id)
 
 static void eevee_render_reset_passes(EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
   /* Reset pass-list. This is safe as they are stored into managed memory chunks. */
-  // memset(vedata->psl, 0, sizeof(*vedata->psl)); ORIGINAL
-  // memset(inst, 0, sizeof(*inst)); NEW NEED TO FIGURE THIS OUT
-
-  // THIS IS ONLY USED FOR MOTION BLUR DURING RENDERING
-  
-  memset(inst->shadow_pass, 0, sizeof(inst->shadow_pass));
-  memset(inst->shadow_accum_pass, 0, sizeof(inst->shadow_accum_pass));
-  
-  memset(inst->probe_background, 0, sizeof(inst->probe_background));
-  memset(inst->probe_glossy_compute, 0, sizeof(inst->probe_glossy_compute));
-  memset(inst->probe_diffuse_compute, 0, sizeof(inst->probe_diffuse_compute));
-  memset(inst->probe_visibility_compute, 0, sizeof(inst->probe_visibility_compute));
-  memset(inst->probe_grid_fill, 0, sizeof(inst->probe_grid_fill));
-  memset(inst->probe_display, 0, sizeof(inst->probe_display));
-  memset(inst->probe_planar_downsample_ps, 0, sizeof(inst->probe_planar_downsample_ps));
-
-  memset(inst->ao_horizon_search, 0, sizeof(inst->ao_horizon_search));
-  memset(inst->ao_horizon_debug, 0, sizeof(inst->ao_horizon_debug));
-  memset(inst->ao_accum_ps, 0, sizeof(inst->ao_accum_ps));
-  memset(inst->mist_accum_ps, 0, sizeof(inst->mist_accum_ps));
-  memset(inst->motion_blur, 0, sizeof(inst->motion_blur));
-  memset(inst->bloom_blit, 0, sizeof(inst->bloom_blit));
-  memset(inst->bloom_downsample_first, 0, sizeof(inst->bloom_downsample_first));
-  memset(inst->bloom_downsample, 0, sizeof(inst->bloom_downsample));
-  memset(inst->bloom_upsample, 0, sizeof(inst->bloom_upsample));
-  memset(inst->bloom_resolve, 0, sizeof(inst->bloom_resolve));
-  memset(inst->bloom_accum_ps, 0, sizeof(inst->bloom_accum_ps));
-  memset(inst->dof_setup, 0, sizeof(inst->dof_setup));
-  memset(inst->dof_flatten_tiles, 0, sizeof(inst->dof_flatten_tiles));
-  memset(inst->dof_dilate_tiles_minmax, 0, sizeof(inst->dof_dilate_tiles_minmax));
-  memset(inst->dof_dilate_tiles_minabs, 0, sizeof(inst->dof_dilate_tiles_minabs));
-  memset(inst->dof_reduce_copy, 0, sizeof(inst->dof_reduce_copy));
-  memset(inst->dof_downsample, 0, sizeof(inst->dof_downsample));
-  memset(inst->dof_reduce, 0, sizeof(inst->dof_reduce));
-  memset(inst->dof_bokeh, 0, sizeof(inst->dof_bokeh));
-  memset(inst->dof_gather_fg, 0, sizeof(inst->dof_gather_fg));
-  memset(inst->dof_gather_fg_holefill, 0, sizeof(inst->dof_gather_fg_holefill));
-  memset(inst->dof_gather_bg, 0, sizeof(inst->dof_gather_bg));
-  memset(inst->dof_scatter_fg, 0, sizeof(inst->dof_scatter_fg));
-  memset(inst->dof_scatter_bg, 0, sizeof(inst->dof_scatter_bg));
-  memset(inst->dof_filter, 0, sizeof(inst->dof_filter));
-  memset(inst->dof_resolve, 0, sizeof(inst->dof_resolve));
-  memset(inst->volumetric_world_ps, 0, sizeof(inst->volumetric_world_ps));
-  memset(inst->volumetric_objects_ps, 0, sizeof(inst->volumetric_objects_ps));
-  memset(inst->volumetric_scatter_ps, 0, sizeof(inst->volumetric_scatter_ps));
-  memset(inst->volumetric_integration_ps, 0, sizeof(inst->volumetric_integration_ps));
-  memset(inst->volumetric_resolve_ps, 0, sizeof(inst->volumetric_resolve_ps));
-  memset(inst->volumetric_accum_ps, 0, sizeof(inst->volumetric_accum_ps));
-  memset(inst->ssr_raytrace, 0, sizeof(inst->ssr_raytrace));
-  memset(inst->ssr_resolve, 0, sizeof(inst->ssr_resolve));
-  memset(inst->ssr_resolve_probe, 0, sizeof(inst->ssr_resolve_probe));
-  memset(inst->ssr_resolve_refl, 0, sizeof(inst->ssr_resolve_refl));
-  memset(inst->sss_blur_ps, 0, sizeof(inst->sss_blur_ps));
-  memset(inst->sss_resolve_ps, 0, sizeof(inst->sss_resolve_ps));
-  memset(inst->sss_translucency_ps, 0, sizeof(inst->sss_translucency_ps));
-  memset(inst->color_copy_ps, 0, sizeof(inst->color_copy_ps));
-  memset(inst->color_downsample_ps, 0, sizeof(inst->color_downsample_ps));
-  memset(inst->color_downsample_cube_ps, 0, sizeof(inst->color_downsample_cube_ps));
-  memset(inst->velocity_object, 0, sizeof(inst->velocity_object));
-  memset(inst->velocity_hair, 0, sizeof(inst->velocity_hair));
-  memset(inst->velocity_resolve, 0, sizeof(inst->velocity_resolve));
-  memset(inst->velocity_tiles_x, 0, sizeof(inst->velocity_tiles_x));
-  memset(inst->velocity_tiles, 0, sizeof(inst->velocity_tiles));
-  memset(inst->velocity_tiles_expand[2], 0, sizeof(inst->velocity_tiles_expand[2]));
-  memset(inst->taa_resolve, 0, sizeof(inst->taa_resolve));
-  memset(inst->alpha_checker, 0, sizeof(inst->alpha_checker));
-
-  memset(inst->maxz_downlevel_ps, 0, sizeof(inst->maxz_downlevel_ps));
-  memset(inst->maxz_copydepth_ps, 0, sizeof(inst->maxz_copydepth_ps));
-  memset(inst->maxz_copydepth_layer_ps, 0, sizeof(inst->maxz_copydepth_layer_ps));
-
-  memset(inst->material_accum_ps, 0, sizeof(inst->material_accum_ps));
-  memset(inst->background_accum_ps, 0, sizeof(inst->background_accum_ps));
-  memset(inst->transparent_accum_ps, 0, sizeof(inst->transparent_accum_ps));
-  memset(inst->cryptomatte_ps, 0, sizeof(inst->cryptomatte_ps));
-
-  memset(inst->depth_ps, 0, sizeof(inst->depth_ps));
-  memset(inst->depth_cull_ps, 0, sizeof(inst->depth_cull_ps));
-  memset(inst->depth_clip_ps, 0, sizeof(inst->depth_clip_ps));
-  memset(inst->depth_clip_cull_ps, 0, sizeof(inst->depth_clip_cull_ps));
-  memset(inst->depth_refract_ps, 0, sizeof(inst->depth_refract_ps));
-  memset(inst->depth_refract_cull_ps, 0, sizeof(inst->depth_refract_cull_ps));
-  memset(inst->depth_refract_clip_ps, 0, sizeof(inst->depth_refract_clip_ps));
-  memset(inst->depth_refract_clip_cull_ps, 0, sizeof(inst->depth_refract_clip_cull_ps));
-  memset(inst->material_ps, 0, sizeof(inst->material_ps));
-  memset(inst->material_cull_ps, 0, sizeof(inst->material_cull_ps));
-  memset(inst->material_refract_ps, 0, sizeof(inst->material_refract_ps));
-  memset(inst->material_refract_cull_ps, 0, sizeof(inst->material_refract_cull_ps));
-  memset(inst->material_sss_ps, 0, sizeof(inst->material_sss_ps));
-  memset(inst->material_sss_cull_ps, 0, sizeof(inst->material_sss_cull_ps));
-  memset(inst->transparent_pass, 0, sizeof(inst->transparent_pass));
-  memset(inst->background_ps, 0, sizeof(inst->background_ps));
-  memset(inst->update_noise_pass, 0, sizeof(inst->update_noise_pass));
-  memset(inst->lookdev_glossy_pass, 0, sizeof(inst->lookdev_glossy_pass));
-  memset(inst->lookdev_diffuse_pass, 0, sizeof(inst->lookdev_diffuse_pass));
-  memset(inst->renderpass_pass, 0, sizeof(inst->renderpass_pass));
+  memset(vedata->psl, 0, sizeof(*vedata->psl));
 }
 
 static void eevee_render_to_image(void *vedata,
@@ -684,11 +464,6 @@ static void eevee_render_to_image(void *vedata,
                                   const rcti *rect)
 {
   EEVEE_Data *ved = (EEVEE_Data *)vedata;
-  if (ved->instance == nullptr) {
-    ved->instance = new GOOENGINE_Instance();
-  }
-  GOOENGINE_Instance *inst = ved->instance;
-
   const DRWContextState *draw_ctx = DRW_context_state_get();
   Depsgraph *depsgraph = draw_ctx->depsgraph;
   Scene *scene = DEG_get_evaluated_scene(depsgraph);
@@ -699,7 +474,7 @@ static void eevee_render_to_image(void *vedata,
   if (!EEVEE_render_init(static_cast<EEVEE_Data *>(vedata), engine, depsgraph)) {
     return;
   }
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_PrivateData *g_data = ved->stl->g_data;
 
   int initial_frame = scene->r.cfra;
   float initial_subframe = scene->r.subframe;
@@ -710,7 +485,7 @@ static void eevee_render_to_image(void *vedata,
   EEVEE_render_modules_init(static_cast<EEVEE_Data *>(vedata), engine, depsgraph);
 
   g_data->render_sample_count_per_timestep = EEVEE_temporal_sampling_sample_count_get(scene,
-                                                                                      inst);
+                                                                                      ved->stl);
 
   /* Reset in case the same engine is used on multiple views. */
   EEVEE_temporal_sampling_reset(static_cast<EEVEE_Data *>(vedata));
@@ -828,7 +603,7 @@ static void eevee_render_to_image(void *vedata,
     }
   }
 
-  EEVEE_motion_blur_data_free(&inst->effects->motion_blur);
+  EEVEE_motion_blur_data_free(&ved->stl->effects->motion_blur);
 
   if (RE_engine_test_break(engine)) {
     return;
@@ -849,8 +624,7 @@ static void eevee_render_to_image(void *vedata,
 static void eevee_store_metadata(void *vedata, RenderResult *render_result)
 {
   EEVEE_Data *ved = (EEVEE_Data *)vedata;
-  GOOENGINE_Instance *inst = ved->instance;
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_PrivateData *g_data = ved->stl->g_data;
   if (g_data->render_passes & EEVEE_RENDER_PASS_CRYPTOMATTE) {
     EEVEE_cryptomatte_store_metadata(ved, render_result);
     EEVEE_cryptomatte_free(ved);
@@ -866,11 +640,6 @@ static void eevee_engine_free()
   EEVEE_volumes_free();
 }
 
-static void eevee_instance_free(void *instance)
-{
-  delete reinterpret_cast<GOOENGINE_Instance *>(instance);
-}
-
 static const DrawEngineDataSize eevee_data_size = DRW_VIEWPORT_DATA_SIZE(EEVEE_Data);
 
 DrawEngineType draw_engine_eevee_type = {
@@ -880,7 +649,7 @@ DrawEngineType draw_engine_eevee_type = {
     /*vedata_size*/ &eevee_data_size,
     /*engine_init*/ &eevee_engine_init,
     /*engine_free*/ &eevee_engine_free,
-    /*instance_free*/ &eevee_instance_free,
+    /*instance_free*/ nullptr,
     /*cache_init*/ &eevee_cache_init,
     /*cache_populate*/ &EEVEE_cache_populate,
     /*cache_finish*/ &eevee_cache_finish,

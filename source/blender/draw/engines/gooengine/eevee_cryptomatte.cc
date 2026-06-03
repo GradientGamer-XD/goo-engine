@@ -101,8 +101,8 @@ BLI_INLINE int eevee_cryptomatte_pixel_stride(const ViewLayer *view_layer)
 
 void EEVEE_cryptomatte_renderpasses_init(EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_PrivateData *g_data = stl->g_data;
 
   const DRWContextState *draw_ctx = DRW_context_state_get();
   ViewLayer *view_layer = draw_ctx->view_layer;
@@ -136,8 +136,10 @@ void EEVEE_cryptomatte_output_init(EEVEE_ViewLayerData * /*sldata*/,
                                    EEVEE_Data *vedata,
                                    int /*tot_samples*/)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_TextureList *txl = vedata->txl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_PrivateData *g_data = stl->g_data;
 
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
   const DRWContextState *draw_ctx = DRW_context_state_get();
@@ -168,11 +170,11 @@ void EEVEE_cryptomatte_output_init(EEVEE_ViewLayerData * /*sldata*/,
                sizeof(EEVEE_CryptomatteSample));
   }
 
-  DRW_texture_ensure_fullscreen_2d(&inst->cryptomatte, format, DRWTextureFlag(0));
-  GPU_framebuffer_ensure_config(&inst->cryptomatte_fb,
+  DRW_texture_ensure_fullscreen_2d(&txl->cryptomatte, format, DRWTextureFlag(0));
+  GPU_framebuffer_ensure_config(&fbl->cryptomatte_fb,
                                 {
                                     GPU_ATTACHMENT_TEXTURE(dtxl->depth),
-                                    GPU_ATTACHMENT_TEXTURE(inst->cryptomatte),
+                                    GPU_ATTACHMENT_TEXTURE(txl->cryptomatte),
                                 });
 }
 
@@ -184,9 +186,9 @@ void EEVEE_cryptomatte_output_init(EEVEE_ViewLayerData * /*sldata*/,
 
 void EEVEE_cryptomatte_cache_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  if ((inst->g_data->render_passes & EEVEE_RENDER_PASS_CRYPTOMATTE) != 0) {
-    DRW_PASS_CREATE(inst->cryptomatte_ps, DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL);
+  EEVEE_PassList *psl = vedata->psl;
+  if ((vedata->stl->g_data->render_passes & EEVEE_RENDER_PASS_CRYPTOMATTE) != 0) {
+    DRW_PASS_CREATE(psl->cryptomatte_ps, DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL);
   }
 }
 
@@ -194,14 +196,13 @@ static DRWShadingGroup *eevee_cryptomatte_shading_group_create(
     EEVEE_Data *vedata, EEVEE_ViewLayerData *sldata, Object *ob, Material *material, bool is_hair)
 {
   const DRWContextState *draw_ctx = DRW_context_state_get();
-  GOOENGINE_Instance *inst = vedata->instance;
-
   const ViewLayer *view_layer = draw_ctx->view_layer;
   const eViewLayerCryptomatteFlags cryptomatte_layers = eevee_cryptomatte_active_layers(
       view_layer);
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_PrivateData *g_data = vedata->stl->g_data;
   float cryptohash[4] = {0.0f};
 
+  EEVEE_PassList *psl = vedata->psl;
   int layer_offset = 0;
   if ((cryptomatte_layers & VIEW_LAYER_CRYPTOMATTE_OBJECT) != 0) {
     uint32_t cryptomatte_hash = BKE_cryptomatte_object_hash(
@@ -226,7 +227,7 @@ static DRWShadingGroup *eevee_cryptomatte_shading_group_create(
   }
 
   DRWShadingGroup *grp = DRW_shgroup_create(EEVEE_shaders_cryptomatte_sh_get(is_hair),
-                                            inst->cryptomatte_ps);
+                                            psl->cryptomatte_ps);
   DRW_shgroup_uniform_vec4_copy(grp, "cryptohash", cryptohash);
   DRW_shgroup_uniform_block(grp, "shadow_block", sldata->shadow_ubo);
 
@@ -331,8 +332,8 @@ void EEVEE_cryptomatte_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *s
  * cryptomatte samples. */
 static void eevee_cryptomatte_download_buffer(EEVEE_Data *vedata, GPUFrameBuffer *framebuffer)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_PrivateData *g_data = stl->g_data;
   const DRWContextState *draw_ctx = DRW_context_state_get();
   const ViewLayer *view_layer = draw_ctx->view_layer;
   const int num_cryptomatte_layers = eevee_cryptomatte_layers_count(view_layer);
@@ -391,9 +392,11 @@ static void eevee_cryptomatte_download_buffer(EEVEE_Data *vedata, GPUFrameBuffer
 
 void EEVEE_cryptomatte_output_accumulate(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_PrivateData *g_data = inst->g_data;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_PrivateData *g_data = stl->g_data;
+  EEVEE_EffectsInfo *effects = stl->effects;
+  EEVEE_PassList *psl = vedata->psl;
   const DRWContextState *draw_ctx = DRW_context_state_get();
   const ViewLayer *view_layer = draw_ctx->view_layer;
   const int cryptomatte_levels = view_layer->cryptomatte_levels;
@@ -404,14 +407,14 @@ void EEVEE_cryptomatte_output_accumulate(EEVEE_ViewLayerData * /*sldata*/, EEVEE
    * integrating it into the accum buffer. */
   if (g_data->cryptomatte_accurate_mode || current_sample < cryptomatte_levels) {
     static float clear_color[4] = {0.0};
-    GPU_framebuffer_bind(inst->cryptomatte_fb);
-    GPU_framebuffer_clear_color(inst->cryptomatte_fb, clear_color);
-    DRW_draw_pass(inst->cryptomatte_ps);
+    GPU_framebuffer_bind(fbl->cryptomatte_fb);
+    GPU_framebuffer_clear_color(fbl->cryptomatte_fb, clear_color);
+    DRW_draw_pass(psl->cryptomatte_ps);
 
-    eevee_cryptomatte_download_buffer(vedata, inst->cryptomatte_fb);
+    eevee_cryptomatte_download_buffer(vedata, fbl->cryptomatte_fb);
 
     /* Restore */
-    GPU_framebuffer_bind(inst->main_fb);
+    GPU_framebuffer_bind(fbl->main_fb);
   }
 }
 
@@ -478,9 +481,10 @@ static int eevee_cryptomatte_sample_cmp_reverse(const void *a_, const void *b_)
  * During post processing ensure that the total of weights per sample is between 0 and 1. */
 static void eevee_cryptomatte_postprocess_weights(EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_PrivateData *g_data = inst->g_data;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_PrivateData *g_data = stl->g_data;
+  EEVEE_EffectsInfo *effects = stl->effects;
+  EEVEE_TextureList *txl = vedata->txl;
   const DRWContextState *draw_ctx = DRW_context_state_get();
   const ViewLayer *view_layer = draw_ctx->view_layer;
   const int num_cryptomatte_layers = eevee_cryptomatte_layers_count(view_layer);
@@ -493,7 +497,7 @@ static void eevee_cryptomatte_postprocess_weights(EEVEE_Data *vedata)
   float *volumetric_transmittance_buffer = nullptr;
   if ((effects->enabled_effects & EFFECT_VOLUMETRIC) != 0) {
     volumetric_transmittance_buffer = static_cast<float *>(
-        GPU_texture_read(inst->volume_transmittance_accum, GPU_DATA_FLOAT, 0));
+        GPU_texture_read(txl->volume_transmittance_accum, GPU_DATA_FLOAT, 0));
   }
   const int num_samples = effects->taa_current_sample - 1;
 
@@ -613,8 +617,7 @@ void EEVEE_cryptomatte_render_result(RenderLayer *rl,
                                      EEVEE_Data *vedata,
                                      EEVEE_ViewLayerData * /*sldata*/)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_PrivateData *g_data = vedata->stl->g_data;
   const DRWContextState *draw_ctx = DRW_context_state_get();
   const ViewLayer *view_layer = draw_ctx->view_layer;
   const eViewLayerCryptomatteFlags cryptomatte_layers = eViewLayerCryptomatteFlags(
@@ -624,8 +627,8 @@ void EEVEE_cryptomatte_render_result(RenderLayer *rl,
 
   const int rect_width = BLI_rcti_size_x(rect);
   const int rect_height = BLI_rcti_size_y(rect);
-  const int rect_offset_x = inst->g_data->overscan_pixels + rect->xmin;
-  const int rect_offset_y = inst->g_data->overscan_pixels + rect->ymin;
+  const int rect_offset_x = vedata->stl->g_data->overscan_pixels + rect->xmin;
+  const int rect_offset_y = vedata->stl->g_data->overscan_pixels + rect->ymin;
   const float *viewport_size = DRW_viewport_size_get();
   const int viewport_width = viewport_size[0];
   EEVEE_CryptomatteSample *accum_buffer = g_data->cryptomatte_accum_buffer;
@@ -691,8 +694,7 @@ void EEVEE_cryptomatte_render_result(RenderLayer *rl,
 
 void EEVEE_cryptomatte_store_metadata(EEVEE_Data *vedata, RenderResult *render_result)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_PrivateData *g_data = vedata->stl->g_data;
   BLI_assert(g_data->cryptomatte_session);
 
   BKE_cryptomatte_store_metadata(g_data->cryptomatte_session, render_result);
@@ -702,8 +704,7 @@ void EEVEE_cryptomatte_store_metadata(EEVEE_Data *vedata, RenderResult *render_r
 
 void EEVEE_cryptomatte_free(EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_PrivateData *g_data = inst->g_data;
+  EEVEE_PrivateData *g_data = vedata->stl->g_data;
   MEM_SAFE_FREE(g_data->cryptomatte_accum_buffer);
   MEM_SAFE_FREE(g_data->cryptomatte_download_buffer);
   if (g_data->cryptomatte_session) {

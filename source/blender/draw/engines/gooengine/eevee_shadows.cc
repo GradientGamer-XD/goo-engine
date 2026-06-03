@@ -91,8 +91,9 @@ void EEVEE_shadows_init(EEVEE_ViewLayerData *sldata)
 
 void EEVEE_shadows_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
   EEVEE_LightsInfo *linfo = sldata->lights;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_PassList *psl = vedata->psl;
 
   EEVEE_ShadowCasterBuffer *backbuffer = linfo->shcaster_backbuffer;
   EEVEE_ShadowCasterBuffer *frontbuffer = linfo->shcaster_frontbuffer;
@@ -110,12 +111,11 @@ void EEVEE_shadows_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
   INIT_MINMAX(linfo->shcaster_aabb.min, linfo->shcaster_aabb.max);
 
   {
-    DRWState state = DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_SHADOW_OFFSET |
-                     DRW_STATE_WRITE_COLOR;
-    DRW_PASS_CREATE(inst->shadow_pass, state);
+    DRWState state = DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_SHADOW_OFFSET | DRW_STATE_WRITE_COLOR;
+    DRW_PASS_CREATE(psl->shadow_pass, state);
 
-    inst->g_data->shadow_shgrp = DRW_shgroup_create(EEVEE_shaders_shadow_sh_get(),
-                                                   inst->shadow_pass);
+    stl->g_data->shadow_shgrp = DRW_shgroup_create(EEVEE_shaders_shadow_sh_get(),
+                                                   psl->shadow_pass);
   }
 }
 
@@ -205,8 +205,8 @@ static bool sphere_bbox_intersect(const BoundSphere *bs, const EEVEE_BoundBox *b
 
 void EEVEE_shadows_update(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
   EEVEE_LightsInfo *linfo = sldata->lights;
   EEVEE_ShadowCasterBuffer *backbuffer = linfo->shcaster_backbuffer;
   EEVEE_ShadowCasterBuffer *frontbuffer = linfo->shcaster_frontbuffer;
@@ -400,21 +400,23 @@ void EEVEE_shadow_output_init(EEVEE_ViewLayerData *sldata,
                               EEVEE_Data *vedata,
                               uint /*tot_samples*/)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_TextureList *txl = vedata->txl;
+  EEVEE_PassList *psl = vedata->psl;
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
   /* Create FrameBuffer. */
   const eGPUTextureFormat texture_format = GPU_R32F;
-  DRW_texture_ensure_fullscreen_2d(&inst->shadow_accum, texture_format, DRWTextureFlag(0));
+  DRW_texture_ensure_fullscreen_2d(&txl->shadow_accum, texture_format, DRWTextureFlag(0));
 
-  GPU_framebuffer_ensure_config(&inst->shadow_accum_fb,
-                                {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(inst->shadow_accum)});
+  GPU_framebuffer_ensure_config(&fbl->shadow_accum_fb,
+                                {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(txl->shadow_accum)});
 
   /* Create Pass and shgroup. */
-  DRW_PASS_CREATE(inst->shadow_accum_pass,
+  DRW_PASS_CREATE(psl->shadow_accum_pass,
                   DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_ALWAYS | DRW_STATE_BLEND_ADD_FULL);
   DRWShadingGroup *grp = DRW_shgroup_create(EEVEE_shaders_shadow_accum_sh_get(),
-                                            inst->shadow_accum_pass);
+                                            psl->shadow_accum_pass);
   DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", &dtxl->depth);
   DRW_shgroup_uniform_texture(grp, "utilTex", EEVEE_materials_get_util_tex());
   DRW_shgroup_uniform_block(grp, "probe_block", sldata->probe_ubo);
@@ -434,10 +436,12 @@ void EEVEE_shadow_output_init(EEVEE_ViewLayerData *sldata,
 
 void EEVEE_shadow_output_accumulate(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_EffectsInfo *effects = vedata->stl->effects;
 
-  if (inst->shadow_accum_fb != nullptr) {
-    GPU_framebuffer_bind(inst->shadow_accum_fb);
+  if (fbl->shadow_accum_fb != nullptr) {
+    GPU_framebuffer_bind(fbl->shadow_accum_fb);
 
     /* Clear texture. */
 #ifdef __APPLE__
@@ -445,19 +449,18 @@ void EEVEE_shadow_output_accumulate(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data
      * when switching between viewports/workspaces. This fixes issue where
      * shadow intensity changes unexpectedly due to TAA not resetting properly. */
     const float clear[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    GPU_framebuffer_clear_color(inst->shadow_accum_fb, clear);
+    GPU_framebuffer_clear_color(fbl->shadow_accum_fb, clear);
 #else
-    EEVEE_EffectsInfo *effects = inst->effects;
     if (effects->taa_current_sample == 1) {
       const float clear[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-      GPU_framebuffer_clear_color(inst->shadow_accum_fb, clear);
+      GPU_framebuffer_clear_color(fbl->shadow_accum_fb, clear);
     }
 #endif
 
-    DRW_draw_pass(inst->shadow_accum_pass);
+    DRW_draw_pass(psl->shadow_accum_pass);
 
     /* Restore */
-    GPU_framebuffer_bind(inst->main_fb);
+    GPU_framebuffer_bind(fbl->main_fb);
   }
 }
 

@@ -251,13 +251,12 @@ void EEVEE_lights_cache_add(EEVEE_ViewLayerData *sldata, Object *ob)
 
 void EEVEE_lights_cache_finish(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
   EEVEE_LightsInfo *linfo = sldata->lights;
 
   sldata->common_data.la_num_light = linfo->num_light;
 
   /* Clamp volume lights power. */
-  float upper_bound = inst->effects->volume_light_clamp;
+  float upper_bound = vedata->stl->effects->volume_light_clamp;
   for (int i = 0; i < linfo->num_light; i++) {
     EEVEE_Light *evli = linfo->light_data + i;
 

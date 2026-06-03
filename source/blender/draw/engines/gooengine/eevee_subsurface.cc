@@ -24,8 +24,10 @@ void EEVEE_subsurface_init(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data * /*veda
 
 void EEVEE_subsurface_draw_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_EffectsInfo *effects = vedata->stl->effects;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_TextureList *txl = vedata->txl;
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
   const float *viewport_size = DRW_viewport_size_get();
   const int fs_size[2] = {int(viewport_size[0]), int(viewport_size[1])};
@@ -55,42 +57,42 @@ void EEVEE_subsurface_draw_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
        * Blit depth instead and use sss_stencil's depth as depth texture,
        * and dtxl->depth as stencil mask. */
       GPU_framebuffer_ensure_config(
-          &inst->sss_blit_fb, {GPU_ATTACHMENT_TEXTURE(effects->sss_stencil), GPU_ATTACHMENT_NONE});
+          &fbl->sss_blit_fb, {GPU_ATTACHMENT_TEXTURE(effects->sss_stencil), GPU_ATTACHMENT_NONE});
 
       stencil_tex = dtxl->depth;
     }
 
     GPU_framebuffer_ensure_config(
-        &inst->sss_blur_fb,
+        &fbl->sss_blur_fb,
         {GPU_ATTACHMENT_TEXTURE(stencil_tex), GPU_ATTACHMENT_TEXTURE(effects->sss_blur)});
 
     GPU_framebuffer_ensure_config(
-        &inst->sss_resolve_fb,
-        {GPU_ATTACHMENT_TEXTURE(stencil_tex), GPU_ATTACHMENT_TEXTURE(inst->color)});
+        &fbl->sss_resolve_fb,
+        {GPU_ATTACHMENT_TEXTURE(stencil_tex), GPU_ATTACHMENT_TEXTURE(txl->color)});
 
     GPU_framebuffer_ensure_config(
-        &inst->sss_translucency_fb,
+        &fbl->sss_translucency_fb,
         {GPU_ATTACHMENT_TEXTURE(stencil_tex), GPU_ATTACHMENT_TEXTURE(effects->sss_irradiance)});
 
-    GPU_framebuffer_ensure_config(&inst->sss_clear_fb,
+    GPU_framebuffer_ensure_config(&fbl->sss_clear_fb,
                                   {GPU_ATTACHMENT_NONE,
                                    GPU_ATTACHMENT_TEXTURE(effects->sss_irradiance),
                                    GPU_ATTACHMENT_TEXTURE(effects->sss_radius)});
-    if ((inst->g_data->render_passes & EEVEE_RENDER_PASS_DIFFUSE_LIGHT) != 0) {
+    if ((stl->g_data->render_passes & EEVEE_RENDER_PASS_DIFFUSE_LIGHT) != 0) {
       EEVEE_subsurface_output_init(sldata, vedata, 0);
     }
     else {
-      GPU_FRAMEBUFFER_FREE_SAFE(inst->sss_accum_fb);
-      DRW_TEXTURE_FREE_SAFE(inst->sss_accum);
+      GPU_FRAMEBUFFER_FREE_SAFE(fbl->sss_accum_fb);
+      DRW_TEXTURE_FREE_SAFE(txl->sss_accum);
     }
   }
   else {
     /* Cleanup to release memory */
-    GPU_FRAMEBUFFER_FREE_SAFE(inst->sss_blur_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(inst->sss_resolve_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(inst->sss_clear_fb);
-    GPU_FRAMEBUFFER_FREE_SAFE(inst->sss_accum_fb);
-    DRW_TEXTURE_FREE_SAFE(inst->sss_accum);
+    GPU_FRAMEBUFFER_FREE_SAFE(fbl->sss_blur_fb);
+    GPU_FRAMEBUFFER_FREE_SAFE(fbl->sss_resolve_fb);
+    GPU_FRAMEBUFFER_FREE_SAFE(fbl->sss_clear_fb);
+    GPU_FRAMEBUFFER_FREE_SAFE(fbl->sss_accum_fb);
+    DRW_TEXTURE_FREE_SAFE(txl->sss_accum);
     effects->sss_stencil = nullptr;
     effects->sss_blur = nullptr;
     effects->sss_irradiance = nullptr;
@@ -102,12 +104,14 @@ void EEVEE_subsurface_output_init(EEVEE_ViewLayerData * /*sldata*/,
                                   EEVEE_Data *vedata,
                                   uint /*tot_samples*/)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_TextureList *txl = vedata->txl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
 
   const eGPUTextureFormat texture_format_light = GPU_RGBA32F;
-  const bool texture_created = inst->sss_accum == nullptr;
-  DRW_texture_ensure_fullscreen_2d(&inst->sss_accum, texture_format_light, DRWTextureFlag(0));
+  const bool texture_created = txl->sss_accum == nullptr;
+  DRW_texture_ensure_fullscreen_2d(&txl->sss_accum, texture_format_light, DRWTextureFlag(0));
 
   GPUTexture *stencil_tex = effects->sss_stencil;
 
@@ -120,8 +124,8 @@ void EEVEE_subsurface_output_init(EEVEE_ViewLayerData * /*sldata*/,
   }
 
   GPU_framebuffer_ensure_config(
-      &inst->sss_accum_fb,
-      {GPU_ATTACHMENT_TEXTURE(stencil_tex), GPU_ATTACHMENT_TEXTURE(inst->sss_accum)});
+      &fbl->sss_accum_fb,
+      {GPU_ATTACHMENT_TEXTURE(stencil_tex), GPU_ATTACHMENT_TEXTURE(txl->sss_accum)});
 
   /* Clear texture.
    * Due to the late initialization of the SSS it can happen that the `taa_current_sample` is
@@ -130,16 +134,16 @@ void EEVEE_subsurface_output_init(EEVEE_ViewLayerData * /*sldata*/,
    * are cleared. */
   if (effects->taa_current_sample == 1 || texture_created) {
     const float clear[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    GPU_framebuffer_bind(inst->sss_accum_fb);
-    GPU_framebuffer_clear_color(inst->sss_accum_fb, clear);
+    GPU_framebuffer_bind(fbl->sss_accum_fb);
+    GPU_framebuffer_clear_color(fbl->sss_accum_fb, clear);
   }
 }
 
 void EEVEE_subsurface_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
   EEVEE_CommonUniformBuffer *common_data = &sldata->common_data;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_EffectsInfo *effects = vedata->stl->effects;
+  EEVEE_PassList *psl = vedata->psl;
 
   const DRWContextState *draw_ctx = DRW_context_state_get();
   const Scene *scene_eval = DEG_get_evaluated_scene(draw_ctx->depsgraph);
@@ -151,9 +155,9 @@ void EEVEE_subsurface_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata
   /* Screen Space SubSurface Scattering overview.
    * TODO */
   DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_STENCIL_EQUAL;
-  DRW_PASS_CREATE(inst->sss_blur_ps, state);
-  DRW_PASS_CREATE(inst->sss_resolve_ps, state | DRW_STATE_BLEND_ADD);
-  DRW_PASS_CREATE(inst->sss_translucency_ps, state | DRW_STATE_BLEND_ADD);
+  DRW_PASS_CREATE(psl->sss_blur_ps, state);
+  DRW_PASS_CREATE(psl->sss_resolve_ps, state | DRW_STATE_BLEND_ADD);
+  DRW_PASS_CREATE(psl->sss_translucency_ps, state | DRW_STATE_BLEND_ADD);
 }
 
 void EEVEE_subsurface_add_pass(EEVEE_ViewLayerData *sldata,
@@ -162,14 +166,15 @@ void EEVEE_subsurface_add_pass(EEVEE_ViewLayerData *sldata,
                                DRWShadingGroup *shgrp,
                                GPUMaterial *gpumat)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
   GPUTexture **depth_src = GPU_depth_blitting_workaround() ? &effects->sss_stencil : &dtxl->depth;
 
   GPUTexture *sss_tex_profile = nullptr;
   GPUUniformBuf *sss_profile = GPU_material_sss_profile_get(
-      gpumat, inst->effects->sss_sample_count, &sss_tex_profile);
+      gpumat, stl->effects->sss_sample_count, &sss_tex_profile);
 
   if (!sss_profile) {
     BLI_assert_msg(0, "SSS pass requested but no SSS data was found");
@@ -191,7 +196,7 @@ void EEVEE_subsurface_add_pass(EEVEE_ViewLayerData *sldata,
     GPUSamplerState state = GPUSamplerState::default_sampler();
 
     DRWShadingGroup *grp = DRW_shgroup_create(EEVEE_shaders_subsurface_first_pass_sh_get(),
-                                              inst->sss_blur_ps);
+                                              psl->sss_blur_ps);
     DRW_shgroup_uniform_texture(grp, "utilTex", EEVEE_materials_get_util_tex());
     DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", depth_src);
     DRW_shgroup_uniform_texture_ref_ex(grp, "sssIrradiance", &effects->sss_irradiance, state);
@@ -202,7 +207,7 @@ void EEVEE_subsurface_add_pass(EEVEE_ViewLayerData *sldata,
     DRW_shgroup_stencil_mask(grp, sss_id);
     DRW_shgroup_call_procedural_triangles(grp, nullptr, 1);
 
-    grp = DRW_shgroup_create(EEVEE_shaders_subsurface_second_pass_sh_get(), inst->sss_resolve_ps);
+    grp = DRW_shgroup_create(EEVEE_shaders_subsurface_second_pass_sh_get(), psl->sss_resolve_ps);
     DRW_shgroup_uniform_texture(grp, "utilTex", EEVEE_materials_get_util_tex());
     DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", depth_src);
     DRW_shgroup_uniform_texture_ref_ex(grp, "sssIrradiance", &effects->sss_blur, state);
@@ -217,7 +222,7 @@ void EEVEE_subsurface_add_pass(EEVEE_ViewLayerData *sldata,
 
   if (ma->blend_flag & MA_BL_TRANSLUCENCY) {
     DRWShadingGroup *grp = DRW_shgroup_create(EEVEE_shaders_subsurface_translucency_sh_get(),
-                                              inst->sss_translucency_ps);
+                                              psl->sss_translucency_ps);
     DRW_shgroup_uniform_texture(grp, "utilTex", EEVEE_materials_get_util_tex());
     DRW_shgroup_uniform_texture(grp, "sssTexProfile", sss_tex_profile);
     DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", depth_src);
@@ -236,16 +241,18 @@ void EEVEE_subsurface_add_pass(EEVEE_ViewLayerData *sldata,
 
 void EEVEE_subsurface_data_render(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
 
   if ((effects->enabled_effects & EFFECT_SSS) != 0) {
     const float clear[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     /* Clear sss_data texture only... can this be done in a more clever way? */
-    GPU_framebuffer_bind(inst->sss_clear_fb);
-    GPU_framebuffer_clear_color(inst->sss_clear_fb, clear);
+    GPU_framebuffer_bind(fbl->sss_clear_fb);
+    GPU_framebuffer_clear_color(fbl->sss_clear_fb, clear);
 
-    GPU_framebuffer_ensure_config(&inst->main_fb,
+    GPU_framebuffer_ensure_config(&fbl->main_fb,
                                   {GPU_ATTACHMENT_LEAVE,
                                    GPU_ATTACHMENT_LEAVE,
                                    GPU_ATTACHMENT_LEAVE,
@@ -254,11 +261,11 @@ void EEVEE_subsurface_data_render(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *
                                    GPU_ATTACHMENT_TEXTURE(effects->sss_radius),
                                    GPU_ATTACHMENT_TEXTURE(effects->sss_albedo)});
 
-    GPU_framebuffer_bind(inst->main_fb);
-    DRW_draw_pass(inst->material_sss_ps);
+    GPU_framebuffer_bind(fbl->main_fb);
+    DRW_draw_pass(psl->material_sss_ps);
 
     /* Restore */
-    GPU_framebuffer_ensure_config(&inst->main_fb,
+    GPU_framebuffer_ensure_config(&fbl->main_fb,
                                   {GPU_ATTACHMENT_LEAVE,
                                    GPU_ATTACHMENT_LEAVE,
                                    GPU_ATTACHMENT_LEAVE,
@@ -271,29 +278,32 @@ void EEVEE_subsurface_data_render(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *
 
 void EEVEE_subsurface_compute(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_TextureList *txl = vedata->txl;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_EffectsInfo *effects = stl->effects;
 
   if ((effects->enabled_effects & EFFECT_SSS) != 0) {
     const float clear[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
     if (GPU_depth_blitting_workaround()) {
       /* Copy depth channel */
-      GPU_framebuffer_blit(inst->main_fb, 0, inst->sss_blit_fb, 0, GPU_DEPTH_BIT);
+      GPU_framebuffer_blit(fbl->main_fb, 0, fbl->sss_blit_fb, 0, GPU_DEPTH_BIT);
     }
     else {
       /* Copy stencil channel, could be avoided (see EEVEE_subsurface_init) */
-      GPU_framebuffer_blit(inst->main_fb, 0, inst->sss_blur_fb, 0, GPU_STENCIL_BIT);
+      GPU_framebuffer_blit(fbl->main_fb, 0, fbl->sss_blur_fb, 0, GPU_STENCIL_BIT);
     }
 
-    if (!DRW_pass_is_empty(inst->sss_translucency_ps)) {
+    if (!DRW_pass_is_empty(psl->sss_translucency_ps)) {
       /* We sample the shadow-maps using normal sampler. We need to disable Comparison mode.
        * TODO(fclem): avoid this by using sampler objects. */
       GPU_texture_compare_mode(sldata->shadow_cube_pool, false);
       GPU_texture_compare_mode(sldata->shadow_cascade_pool, false);
 
-      GPU_framebuffer_bind(inst->sss_translucency_fb);
-      DRW_draw_pass(inst->sss_translucency_ps);
+      GPU_framebuffer_bind(fbl->sss_translucency_fb);
+      DRW_draw_pass(psl->sss_translucency_ps);
 
       /* Reset original state. */
       GPU_texture_compare_mode(sldata->shadow_cube_pool, true);
@@ -301,33 +311,35 @@ void EEVEE_subsurface_compute(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
     }
 
     /* 1. horizontal pass */
-    GPU_framebuffer_bind(inst->sss_blur_fb);
-    GPU_framebuffer_clear_color(inst->sss_blur_fb, clear);
-    DRW_draw_pass(inst->sss_blur_ps);
+    GPU_framebuffer_bind(fbl->sss_blur_fb);
+    GPU_framebuffer_clear_color(fbl->sss_blur_fb, clear);
+    DRW_draw_pass(psl->sss_blur_ps);
 
     /* 2. vertical pass + Resolve */
-    GPU_framebuffer_texture_attach(inst->sss_resolve_fb, inst->color, 0, 0);
-    GPU_framebuffer_bind(inst->sss_resolve_fb);
-    DRW_draw_pass(inst->sss_resolve_ps);
+    GPU_framebuffer_texture_attach(fbl->sss_resolve_fb, txl->color, 0, 0);
+    GPU_framebuffer_bind(fbl->sss_resolve_fb);
+    DRW_draw_pass(psl->sss_resolve_ps);
 
-    GPU_framebuffer_bind(inst->main_fb);
+    GPU_framebuffer_bind(fbl->main_fb);
   }
 }
 
 void EEVEE_subsurface_output_accumulate(EEVEE_ViewLayerData * /*sldata*/, EEVEE_Data *vedata)
 {
-  GOOENGINE_Instance *inst = vedata->instance;
-  EEVEE_EffectsInfo *effects = inst->effects;
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_FramebufferList *fbl = vedata->fbl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
 
-  if (((effects->enabled_effects & EFFECT_SSS) != 0) && (inst->sss_accum_fb != nullptr)) {
+  if (((effects->enabled_effects & EFFECT_SSS) != 0) && (fbl->sss_accum_fb != nullptr)) {
     /* Copy stencil channel, could be avoided (see EEVEE_subsurface_init) */
-    GPU_framebuffer_blit(inst->main_fb, 0, inst->sss_accum_fb, 0, GPU_STENCIL_BIT);
+    GPU_framebuffer_blit(fbl->main_fb, 0, fbl->sss_accum_fb, 0, GPU_STENCIL_BIT);
 
     /* Only do vertical pass + Resolve */
-    GPU_framebuffer_bind(inst->sss_accum_fb);
-    DRW_draw_pass(inst->sss_resolve_ps);
+    GPU_framebuffer_bind(fbl->sss_accum_fb);
+    DRW_draw_pass(psl->sss_resolve_ps);
 
     /* Restore */
-    GPU_framebuffer_bind(inst->main_fb);
+    GPU_framebuffer_bind(fbl->main_fb);
   }
 }
